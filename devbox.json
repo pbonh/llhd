@@ -1,0 +1,32 @@
+{
+  "packages": [
+    "cargo-edit@latest",
+    "cargo-watch@latest",
+    "cargo-readme@latest",
+    "cargo-nextest@latest",
+    "rust-analyzer@latest",
+    "rustup@latest",
+    "bacon@latest"
+  ],
+  "env": {
+    "PROJECT_DIR": "$PWD"
+  },
+  "shell": {
+    "init_hook": [
+      "projectDir=$(dirname $(readlink -f \"$0\"))",
+      "rustupHomeDir=\"$projectDir\"/.rustup",
+      "mkdir -p $rustupHomeDir",
+      "export RUSTUP_HOME=$rustupHomeDir",
+      "export LIBRARY_PATH=$LIBRARY_PATH:\"$projectDir/nix/profile/default/lib\"",
+      "rustup default stable",
+      "rustup component add rust-src",
+      "rustup component add rust-analyzer",
+      "cargo fetch"
+    ],
+    "scripts": {
+      "test":       "cargo test -- --show-output",
+      "start":      "cargo run",
+      "build-docs": "cargo readme > README.md"
+    }
+  }
+}
