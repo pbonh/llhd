@@ -129,6 +129,42 @@
         }
       }
     },
+    "libiconv@latest": {
+      "last_modified": "2024-08-14T11:41:26Z",
+      "resolved": "github:NixOS/nixpkgs/0cb2fd7c59fed0cd82ef858cbcbdb552b9a33465#libiconv",
+      "source": "devbox-search",
+      "version": "99",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/4m2zvl17xzbsbpnlgisl5mnwn2d5gdd6-libiconv-99",
+              "default": true
+            },
+            {
+              "name": "dev",
+              "path": "/nix/store/p8br93anpjh80j2fli7sj4bxf58fxysi-libiconv-99-dev"
+            }
+          ],
+          "store_path": "/nix/store/4m2zvl17xzbsbpnlgisl5mnwn2d5gdd6-libiconv-99"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/pm7prf7lkm7nqy91ywxmvm2s48v4dqlj-libiconv-99",
+              "default": true
+            },
+            {
+              "name": "dev",
+              "path": "/nix/store/r8ag21rmf0v0w696q0axch6k9l1dy8wh-libiconv-99-dev"
+            }
+          ],
+          "store_path": "/nix/store/pm7prf7lkm7nqy91ywxmvm2s48v4dqlj-libiconv-99"
+        }
+      }
+    },
     "rust-analyzer@latest": {
       "last_modified": "2024-01-31T06:48:05Z",
       "resolved": "github:NixOS/nixpkgs/5ad9903c16126a7d949101687af0aa589b1d7d3d#rust-analyzer",

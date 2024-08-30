@@ -1,13 +1,17 @@
 {
-  "packages": [
-    "cargo-edit@latest",
-    "cargo-watch@latest",
-    "cargo-readme@latest",
-    "cargo-nextest@latest",
-    "rust-analyzer@latest",
-    "rustup@latest",
-    "bacon@latest"
-  ],
+  "packages": {
+    "cargo-edit": "latest",
+    "cargo-watch": "latest",
+    "cargo-readme": "latest",
+    "cargo-nextest": "latest",
+    "rust-analyzer": "latest",
+    "rustup": "latest",
+    "bacon": "latest",
+    "libiconv": {
+      "version":   "latest",
+      "platforms": ["aarch64-darwin"]
+    }
+  },
   "env": {
     "PROJECT_DIR": "$PWD"
   },
