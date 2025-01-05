@@ -9,7 +9,7 @@ use crate::{
 use std::collections::HashMap;
 
 /// Determines the order of instructions and BBs in a `Function` or `Process`.
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub(super) struct FunctionLayout {
     /// A linked list of BBs in layout order.
     pub(super) bbs: SecondaryTable<Block, BlockNode>,
@@ -22,7 +22,7 @@ pub(super) struct FunctionLayout {
 }
 
 /// A node in the layout's double-linked list of BBs.
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub(super) struct BlockNode {
     pub(super) prev: Option<Block>,
     pub(super) next: Option<Block>,
@@ -30,7 +30,7 @@ pub(super) struct BlockNode {
 }
 
 /// Determines the order of instructions.
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub(super) struct InstLayout {
     /// A linked list of instructions in layout order.
     insts: SecondaryTable<Inst, InstNode>,
@@ -41,7 +41,7 @@ pub(super) struct InstLayout {
 }
 
 /// A node in the layout's double-linked list of BBs.
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 struct InstNode {
     prev: Option<Inst>,
     next: Option<Inst>,

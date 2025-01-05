@@ -105,7 +105,7 @@ impl std::fmt::Display for UnitKind {
 
 /// A function, process, or entity.
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UnitData {
     pub kind: UnitKind,
     pub name: UnitName,
