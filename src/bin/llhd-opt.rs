@@ -99,7 +99,7 @@ fn main_inner() -> Result<(), String> {
             .map_err(|e| format!("{}", e))?;
         let module = parse_module(&contents).map_err(|e| format!("{}", e))?;
         let mut verifier = Verifier::new();
-        verifier.verify_module(&module);
+        verifier.verify_module(&mut module.units());
         verifier.finish().map_err(|errs| format!("{}", errs))?;
         module
     };
@@ -139,7 +139,7 @@ fn main_inner() -> Result<(), String> {
             "vtpp" => llhd::pass::VarToPhiPromotion::run_on_module(&ctx, &mut module),
             "verify" => {
                 let mut verifier = Verifier::new();
-                verifier.verify_module(&module);
+                verifier.verify_module(&mut module.units());
                 match verifier.finish() {
                     Ok(_) => (),
                     Err(errs) => error!("Verification failed:\n{}", errs),
@@ -159,7 +159,7 @@ fn main_inner() -> Result<(), String> {
     let t0 = Instant::now();
     let mut failed = false;
     let mut verifier = Verifier::new();
-    verifier.verify_module(&module);
+    verifier.verify_module(&mut module.units());
     match verifier.finish() {
         Ok(()) => (),
         Err(errs) => {

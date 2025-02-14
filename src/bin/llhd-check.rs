@@ -64,7 +64,7 @@ fn process_input(path: &str, matches: &ArgMatches) -> Result<()> {
 
     // Verify the module.
     let mut verifier = Verifier::new();
-    verifier.verify_module(&module);
+    verifier.verify_module(&mut module.units());
     verifier
         .finish()
         .map_err(|errs| anyhow!("Verification failed:\n{}", errs))?;

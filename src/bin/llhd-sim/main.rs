@@ -70,7 +70,7 @@ fn main() -> Result<()> {
 
         // Verify the file for integrity.
         let mut verifier = llhd::verifier::Verifier::new();
-        verifier.verify_module(&module);
+        verifier.verify_module(&mut module.units());
         verifier
             .finish()
             .map_err(|e| anyhow!("{}", e))

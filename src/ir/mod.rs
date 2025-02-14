@@ -17,6 +17,9 @@ pub mod prelude;
 mod sig;
 mod unit;
 
+#[macro_use]
+mod scoped_module;
+
 use self::cfg::*;
 use self::dfg::*;
 pub use self::inst::*;
@@ -218,5 +221,31 @@ impl std::fmt::Display for BlockDumper<'_> {
         } else {
             write!(f, "{}", self.0)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use euclid::default::Box2D;
+
+    type LLHDIndex = (UnitId, Value, Option<Inst>, Option<Value>);
+
+    scoped_llhd_module! {
+        LLHDSlotMapWBoundingBox {
+            LLHDKey,
+            LLHDIndex,
+            bb: Box2D<usize>,
+        }
+    }
+
+    #[test]
+    fn default_llhd_slotmap_example() {
+        let empty_llhd_slotmap = LLHDSlotMapWBoundingBox::default();
+        let default_llhd_map = empty_llhd_slotmap.llhd_map;
+        assert!(default_llhd_map.is_empty());
+        let default_bb_map = empty_llhd_slotmap.bb;
+        assert!(default_bb_map.is_empty());
     }
 }

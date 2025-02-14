@@ -239,7 +239,7 @@ impl Module {
     /// Panic if the module is not well-formed.
     pub fn verify(&self) {
         let mut verifier = Verifier::new();
-        verifier.verify_module(self);
+        verifier.verify_module(self.units());
         match verifier.finish() {
             Ok(()) => (),
             Err(errs) => {

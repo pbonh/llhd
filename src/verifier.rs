@@ -34,8 +34,8 @@ impl Verifier {
     }
 
     /// Verify the integrity of a `Module`.
-    pub fn verify_module(&mut self, module: &Module) {
-        for unit in module.units() {
+    pub fn verify_module<'unit>(&mut self, units: impl Iterator<Item = Unit<'unit>>) {
+        for unit in units {
             self.verify_unit(unit);
         }
     }

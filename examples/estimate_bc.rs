@@ -19,7 +19,7 @@ fn main() {
         input.read_to_string(&mut contents).unwrap();
         let module = parse_module(&contents).unwrap();
         let mut verifier = Verifier::new();
-        verifier.verify_module(&module);
+        verifier.verify_module(&mut module.units());
         verifier.finish().unwrap();
         module
     };
