@@ -23,4 +23,6 @@ pub mod ty;
 pub mod value;
 pub mod verifier;
 
+mod index;
+
 pub use crate::{ty::*, value::*};
