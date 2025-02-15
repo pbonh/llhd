@@ -79,11 +79,10 @@ where
                     &fields[offset % fields.len()],
                     abbrev,
                 );
-            }
-            // _ => panic!(
-            //     "flush non-const/non-aggregate signal {:?} with value {:?}",
-            //     signal, value
-            // ),
+            } // _ => panic!(
+              //     "flush non-const/non-aggregate signal {:?} with value {:?}",
+              //     signal, value
+              // ),
         };
     }
 
