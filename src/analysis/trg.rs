@@ -102,7 +102,7 @@ impl TemporalRegionGraph {
 
         // Note the blocks in each region and build the head/tail information.
         for (&bb, &id) in &blocks {
-            let mut reg = &mut regions[id.0];
+            let reg = &mut regions[id.0];
             reg.blocks.insert(bb);
 
             // Determine whether this is a head block.

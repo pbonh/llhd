@@ -12,6 +12,7 @@ extern crate log;
 extern crate serde;
 
 #[macro_use]
+#[allow(dead_code)]
 pub mod assembly;
 pub mod analysis;
 pub mod ir;

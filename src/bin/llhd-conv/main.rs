@@ -19,6 +19,7 @@ use std::{
     str::FromStr,
 };
 
+#[allow(dead_code)]
 mod liberty;
 pub mod verilog;
 
