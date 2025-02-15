@@ -10,11 +10,12 @@ macro_rules! scoped_llhd_module {
     // Match a struct definition with a list of secondary map types
     ($struct_name:ident { $key_type:ident, $main_value_type:ty, $( $sec_map_name:ident : $sec_value_type:ty ),* $(,)? }) => {
 
-        use slotmap::{new_key_type, SecondaryMap, SlotMap};
+        use slotmap::{new_key_type, SecondaryMap};
         use crate::{
+            index::*,
             ir::{
                 DeclData, DeclId, ExtUnit, LinkedUnit, Signature, Unit, UnitBuilder, UnitData, UnitId,
-                UnitName, Module
+                UnitName, Module, LLHDScope
             },
             table::{PrimaryTable, TableKey},
             verifier::Verifier,
@@ -38,7 +39,7 @@ macro_rules! scoped_llhd_module {
             decl_order: BTreeSet<DeclId>,
             link_table: Option<HashMap<(UnitId, ExtUnit), LinkedUnit>>,
             location_hints: HashMap<UnitId, usize>,
-            llhd_map: SlotMap<$key_type, $main_value_type>,
+            llhd_map: ScopedSlotMap<$key_type, $main_value_type, LLHDScope>,
             $(
                 $sec_map_name: SecondaryMap<$key_type, $sec_value_type>,
             )*
@@ -54,7 +55,7 @@ macro_rules! scoped_llhd_module {
                     decl_order: Default::default(),
                     link_table: Default::default(),
                     location_hints: Default::default(),
-                    llhd_map: SlotMap::<$key_type, $main_value_type>::default(),
+                    llhd_map: ScopedSlotMap::<$key_type, $main_value_type, LLHDScope>::default(),
                     $(
                         $sec_map_name: SecondaryMap::<$key_type, $sec_value_type>::default(),
                     )*

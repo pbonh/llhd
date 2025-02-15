@@ -230,7 +230,6 @@ impl std::fmt::Display for BlockDumper<'_> {
 #[cfg(test)]
 mod tests {
     use crate::assembly;
-    use crate::ir::scope::LLHDScope;
 
     use euclid::default::Box2D;
 

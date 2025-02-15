@@ -44,6 +44,10 @@ where
         self.slotmap.iter()
     }
 
+    pub(crate) fn is_empty(&self) -> bool {
+        self.slotmap.is_empty() && self.scope_elements.is_empty()
+    }
+
     pub(crate) fn get_scope(&self, key: SlotMapKey) -> Option<Scope> {
         if let Some((scope, _data)) = self.slotmap.get(key) {
             Some(scope.clone())
