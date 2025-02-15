@@ -14,7 +14,7 @@ macro_rules! scoped_llhd_module {
         use crate::{
             ir::{
                 DeclData, DeclId, ExtUnit, LinkedUnit, Signature, Unit, UnitBuilder, UnitData, UnitId,
-                UnitName,
+                UnitName, Module
             },
             table::{PrimaryTable, TableKey},
             verifier::Verifier,
@@ -23,7 +23,7 @@ macro_rules! scoped_llhd_module {
         use std::collections::{BTreeSet, HashMap};
 
         new_key_type! {
-            struct $key_type;
+            pub struct $key_type;
         }
 
         /// A scoped module.
@@ -42,10 +42,6 @@ macro_rules! scoped_llhd_module {
             $(
                 $sec_map_name: SecondaryMap<$key_type, $sec_value_type>,
             )*
-        }
-
-        impl $struct_name {
-            // Constructor to initialize the struct
         }
 
         impl $struct_name {
@@ -108,12 +104,12 @@ macro_rules! scoped_llhd_module {
             }
 
             /// Return an iterator over the units in this module.
-            pub fn units<'a>(&'a self) -> impl Iterator<Item = Unit<'a>> + 'a {
+            pub fn units(&self) -> impl Iterator<Item = Unit> {
                 self.unit_order.iter().map(move |&id| self.unit(id))
             }
 
             /// Return a mutable iterator over the units in this module.
-            pub fn units_mut<'a>(&'a mut self) -> impl Iterator<Item = UnitBuilder<'a>> + 'a {
+            pub fn units_mut(&mut self) -> impl Iterator<Item = UnitBuilder> {
                 self.units
                     .storage
                     .iter_mut()
@@ -121,12 +117,12 @@ macro_rules! scoped_llhd_module {
             }
 
             /// Return a parallel iterator over the units in this module.
-            pub fn par_units<'a>(&'a self) -> impl ParallelIterator<Item = Unit<'a>> + 'a {
+            pub fn par_units(&self) -> impl ParallelIterator<Item = Unit> {
                 self.unit_order.par_iter().map(move |&id| self.unit(id))
             }
 
             /// Return a parallel mutable iterator over the units in this module.
-            pub fn par_units_mut<'a>(&'a mut self) -> impl ParallelIterator<Item = UnitBuilder<'a>> + 'a {
+            pub fn par_units_mut(&mut self) -> impl ParallelIterator<Item = UnitBuilder> {
                 self.units
                     .storage
                     .par_iter_mut()
@@ -134,22 +130,22 @@ macro_rules! scoped_llhd_module {
             }
 
             /// Return an iterator over the functions in this module.
-            pub fn functions<'a>(&'a self) -> impl Iterator<Item = Unit<'a>> + 'a {
+            pub fn functions(&self) -> impl Iterator<Item = Unit> {
                 self.units().filter(|unit| unit.is_function())
             }
 
             /// Return an iterator over the processes in this module.
-            pub fn processes<'a>(&'a self) -> impl Iterator<Item = Unit<'a>> + 'a {
+            pub fn processes(&self) -> impl Iterator<Item = Unit> {
                 self.units().filter(|unit| unit.is_process())
             }
 
             /// Return an iterator over the entities in this module.
-            pub fn entities<'a>(&'a self) -> impl Iterator<Item = Unit<'a>> + 'a {
+            pub fn entities(&self) -> impl Iterator<Item = Unit> {
                 self.units().filter(|unit| unit.is_entity())
             }
 
             /// Return an iterator over the external unit declarations in this module.
-            pub fn decls<'a>(&'a self) -> impl Iterator<Item = DeclId> + 'a {
+            pub fn decls(&self) -> impl Iterator<Item = DeclId> + '_ {
                 self.decl_order.iter().cloned()
             }
 
@@ -165,7 +161,7 @@ macro_rules! scoped_llhd_module {
             }
 
             /// Return an iterator over the symbols in the module.
-            pub fn symbols<'a>(&'a self) -> impl Iterator<Item = (&UnitName, LinkedUnit, &Signature)> + 'a {
+            pub fn symbols(&self) -> impl Iterator<Item = (&UnitName, LinkedUnit, &Signature)> {
                 self.units()
                     .map(|unit| (unit.name(), LinkedUnit::Def(unit.id()), unit.sig()))
                     .chain(
@@ -175,16 +171,16 @@ macro_rules! scoped_llhd_module {
             }
 
             /// Return an iterator over the local symbols in the module.
-            pub fn local_symbols<'a>(
-                &'a self,
-            ) -> impl Iterator<Item = (&UnitName, LinkedUnit, &Signature)> + 'a {
+            pub fn local_symbols(
+                &self,
+            ) -> impl Iterator<Item = (&UnitName, LinkedUnit, &Signature)> {
                 self.symbols().filter(|&(name, ..)| name.is_local())
             }
 
             /// Return an iterator over the global symbols in the module.
-            pub fn global_symbols<'a>(
-                &'a self,
-            ) -> impl Iterator<Item = (&UnitName, LinkedUnit, &Signature)> + 'a {
+            pub fn global_symbols(
+                &self,
+            ) -> impl Iterator<Item = (&UnitName, LinkedUnit, &Signature)> {
                 self.symbols().filter(|&(name, ..)| name.is_global())
             }
 
@@ -321,6 +317,33 @@ macro_rules! scoped_llhd_module {
             }
         }
 
+        impl From<Module> for $struct_name {
+            fn from(module: Module) -> Self {
+                Self {
+                    units: module.units,
+                    unit_order: module.unit_order,
+                    decls: module.decls,
+                    decl_order: module.decl_order,
+                    link_table: module.link_table,
+                    location_hints: module.location_hints,
+                    llhd_map: Default::default(),
+                    $( $sec_map_name: SecondaryMap::<$key_type, $sec_value_type>::default(), )*
+                }
+            }
+        }
+
+        impl From<$struct_name> for Module {
+            fn from(scoped_module: $struct_name) -> Self {
+                Self {
+                    units: scoped_module.units,
+                    unit_order: scoped_module.unit_order,
+                    decls: scoped_module.decls,
+                    decl_order: scoped_module.decl_order,
+                    link_table: scoped_module.link_table,
+                    location_hints: scoped_module.location_hints,
+                }
+            }
+        }
     };
 }
 

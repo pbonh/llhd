@@ -25,18 +25,18 @@ pub struct Module {
     /// The units in this module.
     pub(crate) units: PrimaryTable<UnitId, UnitData>,
     /// The order of units in the module.
-    unit_order: BTreeSet<UnitId>,
+    pub(crate) unit_order: BTreeSet<UnitId>,
     /// The declarations in this module.
     pub(crate) decls: PrimaryTable<DeclId, DeclData>,
     /// The order of declarations in the module.
-    decl_order: BTreeSet<DeclId>,
+    pub(crate) decl_order: BTreeSet<DeclId>,
     /// The local link table. Maps an external unit declared within a unit to a
     /// unit in the module.
-    link_table: Option<HashMap<(UnitId, ExtUnit), LinkedUnit>>,
+    pub(crate) link_table: Option<HashMap<(UnitId, ExtUnit), LinkedUnit>>,
     /// The location of units in the input file. If the module was read from a
     /// file, this table *may* contain additional hints on the byte offsets
     /// where the units were located.
-    location_hints: HashMap<UnitId, usize>,
+    pub(crate) location_hints: HashMap<UnitId, usize>,
 }
 
 impl Module {

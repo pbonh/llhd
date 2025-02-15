@@ -17,14 +17,17 @@ pub mod prelude;
 mod sig;
 mod unit;
 
+mod scope;
 #[macro_use]
 mod scoped_module;
+mod module_tester;
 
 use self::cfg::*;
 use self::dfg::*;
 pub use self::inst::*;
 use self::layout::*;
 pub use self::module::*;
+pub use self::scope::*;
 pub use self::sig::*;
 pub use self::unit::*;
 
@@ -226,16 +229,17 @@ impl std::fmt::Display for BlockDumper<'_> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::assembly;
+    use crate::ir::scope::LLHDScope;
 
     use euclid::default::Box2D;
 
-    type LLHDIndex = (UnitId, Value, Option<Inst>, Option<Value>);
+    use super::module_tester::LLHDModuleTester;
 
     scoped_llhd_module! {
         LLHDSlotMapWBoundingBox {
             LLHDKey,
-            LLHDIndex,
+            LLHDScope,
             bb: Box2D<usize>,
         }
     }
@@ -247,5 +251,52 @@ mod tests {
         assert!(default_llhd_map.is_empty());
         let default_bb_map = empty_llhd_slotmap.bb;
         assert!(default_bb_map.is_empty());
+    }
+
+    #[test]
+    fn from_llhd_module() {
+        let module_txt = indoc::indoc! {"
+            declare @bar (i32, i9) i32
+
+            func @foo (i32 %x, i8 %y) i32 {
+            %entry:
+                %asdf0 = const i32 42
+                %1 = const time 1.489ns 10d 9e
+                %hello = alias i32 %asdf0
+                %2 = not i32 %asdf0
+                %3 = neg i32 %2
+                %4 = add i32 %2, %3
+                %5 = sub i32 %2, %3
+                %6 = and i32 %2, %3
+                %7 = or i32 %2, %3
+                %8 = xor i32 %2, %3
+                %cmp = eq i32 %7, %7
+                br %cmp, %entry, %next
+            %next:
+                %a = exts i9, i32 %7, 4, 9
+                %b = neg i9 %a
+                %r = call i32 @bar (i32 %8, i9 %b)
+                %many = [32 x i9 %b]
+                %some = exts [9 x i9], [32 x i9] %many, 2, 9
+                %one = extf i9, [9 x i9] %some, 3
+                neg i9 %one
+                ret i32 %3
+            }
+
+            entity @magic (i32$ %data, i1$ %clk) -> (i32$ %out) {
+                %datap = prb i32$ %data
+                %cmp = const i1 0
+                reg i32$ %out, [%datap, rise %cmp]
+            }
+        "};
+        let original_module = assembly::parse_module(module_txt).unwrap();
+        let scoped_module: LLHDSlotMapWBoundingBox = original_module.clone().into();
+        let converted_module: Module = scoped_module.into();
+        let converted_module_tester = LLHDModuleTester::from(converted_module);
+        let original_module_tester = LLHDModuleTester::from(original_module);
+        assert_eq!(
+            original_module_tester, converted_module_tester,
+            "Module round-trip w/ Scoped Module failed."
+        );
     }
 }
