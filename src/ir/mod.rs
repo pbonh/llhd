@@ -233,12 +233,12 @@ mod tests {
 
     use euclid::default::Box2D;
 
-    use super::module_tester::LLHDModuleTester;
+    use super::{module_tester::LLHDModuleTester, InstData};
 
     scoped_llhd_module! {
         LLHDSlotMapWBoundingBox {
-            LLHDKey,
-            LLHDScope,
+            LLHDEntityId,
+            InstData,
             bb: Box2D<usize>,
         }
     }
