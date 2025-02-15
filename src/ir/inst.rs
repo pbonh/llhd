@@ -352,7 +352,7 @@ impl<'a, 'b> InstBuilder<'a, 'b> {
         let mut modes = vec![];
         args.extend(data.iter().map(|x| x.data));
         args.extend(data.iter().map(|x| x.trigger));
-        args.extend(data.iter().filter_map(|x| x.gate));
+        args.extend(data.iter().map(|x| x.gate.unwrap_or(Value::invalid())));
         modes.extend(data.iter().map(|x| x.mode));
         assert_eq!(args.len(), modes.len() * 3 + 1);
         self.build(
