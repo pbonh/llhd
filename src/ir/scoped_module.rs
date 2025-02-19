@@ -22,6 +22,8 @@ macro_rules! scoped_llhd_module {
         };
         use rayon::prelude::*;
         use std::collections::{BTreeSet, HashMap};
+        use paste::paste;
+
 
         new_key_type! {
             pub struct $key_type;
@@ -288,6 +290,38 @@ macro_rules! scoped_llhd_module {
             pub fn location_hint(&self, mod_unit: UnitId) -> Option<usize> {
                 self.location_hints.get(&mod_unit).cloned()
             }
+
+            pub fn get_llhd_map(&self, key: $key_type) -> Option<&$main_value_type> {
+                if let Some(data) = self.llhd_map.get(key) {
+                    Some(data)
+                } else {
+                    None
+                }
+            }
+
+            pub fn insert_llhd_map(&mut self, scope: LLHDScope, data: $main_value_type) -> $key_type {
+                self.llhd_map.insert(scope, data)
+            }
+
+            $(
+                paste! {
+                    pub fn [<get_ $sec_map_name>](&self, key: $key_type) -> Option<&$sec_value_type> {
+                        if let Some(data) = self.$sec_map_name.get(key) {
+                            Some(data)
+                        } else {
+                            None
+                        }
+                    }
+                }
+            )*
+
+            $(
+                paste! {
+                    pub fn [<insert_ $sec_map_name>](&mut self, key: $key_type, data: $sec_value_type) -> Option<$sec_value_type> {
+                        self.$sec_map_name.insert(key, data)
+                    }
+                }
+            )*
         }
 
         impl std::ops::Index<UnitId> for $struct_name {

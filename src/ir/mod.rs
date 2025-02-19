@@ -245,11 +245,23 @@ mod tests {
 
     #[test]
     fn default_llhd_slotmap_example() {
-        let empty_llhd_slotmap = LLHDSlotMapWBoundingBox::default();
-        let default_llhd_map = empty_llhd_slotmap.llhd_map;
+        let mut empty_llhd_slotmap = LLHDSlotMapWBoundingBox::default();
+        let default_llhd_map = empty_llhd_slotmap.llhd_map.clone();
         assert!(default_llhd_map.is_empty());
-        let default_bb_map = empty_llhd_slotmap.bb;
+        let default_bb_map = empty_llhd_slotmap.bb.clone();
         assert!(default_bb_map.is_empty());
+        let llhd_map = empty_llhd_slotmap.get_llhd_map(LLHDEntityId::default());
+        assert!(llhd_map.is_none());
+        let bb_map = empty_llhd_slotmap.get_bb(LLHDEntityId::default());
+        assert!(bb_map.is_none());
+
+        let inst_data_default = InstData::default();
+        let bb_default = Box2D::default();
+        let llhd_map_entity_default_inst_data =
+            empty_llhd_slotmap.insert_llhd_map(LLHDScope::Module, inst_data_default);
+        let entity_empty_bbox =
+            empty_llhd_slotmap.insert_bb(llhd_map_entity_default_inst_data, bb_default);
+        assert!(entity_empty_bbox.is_none());
     }
 
     #[test]
