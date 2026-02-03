@@ -1346,6 +1346,11 @@ impl Opcode {
         }
     }
 
+    /// Check if this instruction alters control flow.
+    pub fn is_control_flow(self) -> bool {
+        self.is_terminator()
+    }
+
     /// Check if this is a return instruction.
     pub fn is_return(self) -> bool {
         match self {
@@ -1358,6 +1363,25 @@ impl Opcode {
     pub fn is_temporal(self) -> bool {
         match self {
             Opcode::Halt | Opcode::Wait | Opcode::WaitTime => true,
+            _ => false,
+        }
+    }
+
+    /// Check if this instruction is treated as effectful.
+    pub fn is_effectful(self) -> bool {
+        match self {
+            Opcode::Call
+            | Opcode::Reg
+            | Opcode::Con
+            | Opcode::Del
+            | Opcode::Drv
+            | Opcode::DrvCond
+            | Opcode::Var
+            | Opcode::Ld
+            | Opcode::St
+            | Opcode::Sig
+            | Opcode::Prb => true,
+            Opcode::Inst => false,
             _ => false,
         }
     }

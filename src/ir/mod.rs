@@ -15,6 +15,7 @@ mod layout;
 mod module;
 pub mod prelude;
 mod sig;
+mod skeleton;
 mod unit;
 
 use self::cfg::*;
@@ -23,6 +24,7 @@ pub use self::inst::*;
 use self::layout::*;
 pub use self::module::*;
 pub use self::sig::*;
+pub use self::skeleton::*;
 pub use self::unit::*;
 
 impl_table_key! {
