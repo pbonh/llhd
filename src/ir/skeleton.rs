@@ -195,6 +195,7 @@ pub fn cfg_skeleton<E: EGraphLookup>(unit: &Unit, egraph: &E) -> CfgSkeleton<E::
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assembly::parse_module;
     use crate::ir::{Signature, UnitBuilder, UnitData, UnitKind, UnitName};
     use crate::ty::{int_ty, signal_ty};
     use crate::value::{IntValue, TimeValue};
@@ -254,6 +255,31 @@ mod tests {
         }
     }
 
+    fn unit_by_name<'a>(module: &'a crate::ir::Module, name: &str) -> Unit<'a> {
+        module
+            .units()
+            .find(|unit| unit.name().get_name() == Some(name))
+            .unwrap_or_else(|| panic!("unit {} missing", name))
+    }
+
+    fn block_by_name(unit: Unit, name: &str) -> Block {
+        unit.blocks()
+            .find(|&bb| unit.get_block_name(bb) == Some(name))
+            .unwrap_or_else(|| panic!("block {} missing", name))
+    }
+
+    fn value_by_name(unit: Unit, name: &str) -> Value {
+        unit.all_insts()
+            .find_map(|inst| {
+                if !unit.has_result(inst) {
+                    return None;
+                }
+                let value = unit.inst_result(inst);
+                (unit.get_name(value) == Some(name)).then_some(value)
+            })
+            .unwrap_or_else(|| panic!("value {} missing", name))
+    }
+
     #[test]
     fn skeleton_diamond_phi_merge() {
         let mut sig = Signature::new();
@@ -289,6 +315,65 @@ mod tests {
         let unit = builder.finish();
         let egraph = TestEGraph::default();
         let skeleton = cfg_skeleton(&unit, &egraph);
+
+        assert_eq!(skeleton.blocks().len(), 4);
+
+        let merge_block = skeleton.block(merge).expect("merge block missing");
+        assert_eq!(merge_block.args.len(), 1);
+        assert_eq!(
+            merge_block.incoming.get(&then_bb).unwrap(),
+            &vec![egraph.eclass_of_value(then_val)]
+        );
+        assert_eq!(
+            merge_block.incoming.get(&else_bb).unwrap(),
+            &vec![egraph.eclass_of_value(else_val)]
+        );
+
+        let entry_block = skeleton.block(entry).expect("entry block missing");
+        let term = entry_block.terminator.as_ref().expect("entry terminator");
+        assert_eq!(term.opcode, Opcode::BrCond);
+        assert_eq!(term.blocks, vec![then_bb, else_bb]);
+
+        let then_block = skeleton.block(then_bb).expect("then block missing");
+        assert_eq!(then_block.effects.len(), 2);
+        assert_eq!(then_block.effects[0].opcode, Opcode::Var);
+        assert_eq!(then_block.effects[1].opcode, Opcode::St);
+    }
+
+    #[test]
+    fn skeleton_diamond_phi_merge_from_string() {
+        let module = parse_module(
+            r#"
+            func @diamond () i32 {
+            entry:
+                %cond = const i1 1
+                br %cond, %then, %else
+            then:
+                %then_val = const i32 10
+                %ptr = var i32 %then_val
+                st i32* %ptr, %then_val
+                br %merge
+            else:
+                %else_val = const i32 20
+                br %merge
+            merge:
+                %merged = phi i32 [%then_val, %then], [%else_val, %else]
+                ret i32 %merged
+            }
+            "#,
+        )
+        .unwrap();
+
+        let unit = unit_by_name(&module, "diamond");
+        let egraph = TestEGraph::default();
+        let skeleton = cfg_skeleton(&unit, &egraph);
+
+        let entry = block_by_name(unit, "entry");
+        let then_bb = block_by_name(unit, "then");
+        let else_bb = block_by_name(unit, "else");
+        let merge = block_by_name(unit, "merge");
+        let then_val = value_by_name(unit, "then_val");
+        let else_val = value_by_name(unit, "else_val");
 
         assert_eq!(skeleton.blocks().len(), 4);
 
@@ -363,6 +448,54 @@ mod tests {
     }
 
     #[test]
+    fn skeleton_loop_with_phi_backedge_from_string() {
+        let module = parse_module(
+            r#"
+            func @loop () i32 {
+            entry:
+                %init = const i32 0
+                br %header
+            body:
+                %body_val = const i32 1
+                br %header
+            header:
+                %phi = phi i32 [%init, %entry], [%body_val, %body]
+                %cond = const i1 0
+                br %cond, %body, %exit
+            exit:
+                ret i32 %phi
+            }
+            "#,
+        )
+        .unwrap();
+
+        let unit = unit_by_name(&module, "loop");
+        let egraph = TestEGraph::default();
+        let skeleton = cfg_skeleton(&unit, &egraph);
+
+        let entry = block_by_name(unit, "entry");
+        let header = block_by_name(unit, "header");
+        let body = block_by_name(unit, "body");
+        let init = value_by_name(unit, "init");
+        let body_val = value_by_name(unit, "body_val");
+
+        let header_block = skeleton.block(header).expect("header block missing");
+        assert_eq!(header_block.args.len(), 1);
+        assert_eq!(
+            header_block.incoming.get(&entry).unwrap(),
+            &vec![egraph.eclass_of_value(init)]
+        );
+        assert_eq!(
+            header_block.incoming.get(&body).unwrap(),
+            &vec![egraph.eclass_of_value(body_val)]
+        );
+        assert_eq!(
+            header_block.terminator.as_ref().unwrap().opcode,
+            Opcode::BrCond
+        );
+    }
+
+    #[test]
     fn skeleton_process_wait_and_effects() {
         let mut sig = Signature::new();
         sig.add_input(signal_ty(int_ty(1)));
@@ -386,6 +519,37 @@ mod tests {
         let egraph = TestEGraph::default();
         let skeleton = cfg_skeleton(&unit, &egraph);
 
+        let entry_block = skeleton.block(entry).expect("entry block missing");
+        assert_eq!(entry_block.effects.len(), 1);
+        assert_eq!(entry_block.effects[0].opcode, Opcode::Drv);
+        assert_eq!(
+            entry_block.terminator.as_ref().unwrap().opcode,
+            Opcode::Wait
+        );
+    }
+
+    #[test]
+    fn skeleton_process_wait_and_effects_from_string() {
+        let module = parse_module(
+            r#"
+            proc @proc (i1$ %sig_in) -> () {
+            entry:
+                %value = const i1 1
+                %delay = const time 0s
+                drv i1$ %sig_in, %value, %delay
+                wait %next, %sig_in
+            next:
+                halt
+            }
+            "#,
+        )
+        .unwrap();
+
+        let unit = unit_by_name(&module, "proc");
+        let egraph = TestEGraph::default();
+        let skeleton = cfg_skeleton(&unit, &egraph);
+
+        let entry = block_by_name(unit, "entry");
         let entry_block = skeleton.block(entry).expect("entry block missing");
         assert_eq!(entry_block.effects.len(), 1);
         assert_eq!(entry_block.effects[0].opcode, Opcode::Drv);
@@ -432,6 +596,37 @@ mod tests {
     }
 
     #[test]
+    fn skeleton_call_and_inst_effect_classification_from_string() {
+        let module = parse_module(
+            r#"
+            declare @callee () i1
+
+            entity @child (i1$ %input) -> (i1$ %output) {
+            }
+
+            entity @ent (i1$ %input) -> (i1$ %output) {
+                inst @child (i1$ %input) -> (i1$ %output)
+                %call = call i1 @callee ()
+            }
+            "#,
+        )
+        .unwrap();
+
+        let unit = unit_by_name(&module, "ent");
+        let egraph = TestEGraph::default();
+        let mut skeleton = cfg_skeleton(&unit, &egraph);
+
+        let block = skeleton.blocks()[0].block;
+        let block_data = skeleton.block(block).expect("entity block missing");
+        assert_eq!(block_data.effects.len(), 1);
+        assert_eq!(block_data.effects[0].opcode, Opcode::Call);
+
+        assert!(skeleton.detach_effect(block, 0));
+        let block_data = skeleton.block(block).unwrap();
+        assert!(block_data.effects[0].detached);
+    }
+
+    #[test]
     fn skeleton_mixed_wait_time_and_br_cond() {
         let mut sig = Signature::new();
         sig.add_input(signal_ty(int_ty(1)));
@@ -461,6 +656,50 @@ mod tests {
         let unit = builder.finish();
         let egraph = TestEGraph::default();
         let skeleton = cfg_skeleton(&unit, &egraph);
+
+        let entry_block = skeleton.block(entry).expect("entry block missing");
+        assert_eq!(
+            entry_block.terminator.as_ref().unwrap().opcode,
+            Opcode::BrCond
+        );
+        assert_eq!(
+            entry_block.terminator.as_ref().unwrap().blocks,
+            vec![branch, wait_block]
+        );
+
+        let wait = skeleton.block(wait_block).expect("wait block missing");
+        assert_eq!(wait.terminator.as_ref().unwrap().opcode, Opcode::WaitTime);
+        assert_eq!(wait.terminator.as_ref().unwrap().blocks, vec![exit]);
+    }
+
+    #[test]
+    fn skeleton_mixed_wait_time_and_br_cond_from_string() {
+        let module = parse_module(
+            r#"
+            proc @mix (i1$ %signal) -> () {
+            entry:
+                %cond = const i1 1
+                br %cond, %branch, %wait_block
+            branch:
+                br %exit
+            wait_block:
+                %delay = const time 0s
+                wait %exit for %delay, %signal
+            exit:
+                halt
+            }
+            "#,
+        )
+        .unwrap();
+
+        let unit = unit_by_name(&module, "mix");
+        let egraph = TestEGraph::default();
+        let skeleton = cfg_skeleton(&unit, &egraph);
+
+        let entry = block_by_name(unit, "entry");
+        let branch = block_by_name(unit, "branch");
+        let wait_block = block_by_name(unit, "wait_block");
+        let exit = block_by_name(unit, "exit");
 
         let entry_block = skeleton.block(entry).expect("entry block missing");
         assert_eq!(
