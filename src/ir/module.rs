@@ -53,7 +53,7 @@ impl Module {
     }
 
     /// Dump the module in human-readable form.
-    pub fn dump(&self) -> ModuleDumper {
+    pub fn dump(&self) -> ModuleDumper<'_> {
         ModuleDumper(self)
     }
 
@@ -141,23 +141,25 @@ impl Module {
     }
 
     /// Return an unit in the module.
-    pub fn unit(&self, unit: UnitId) -> Unit {
+    pub fn unit(&self, unit: UnitId) -> Unit<'_> {
         Unit::new(unit, &self[unit])
     }
 
     /// Return a mutable unit in the module.
-    pub fn unit_mut(&mut self, unit: UnitId) -> UnitBuilder {
+    pub fn unit_mut(&mut self, unit: UnitId) -> UnitBuilder<'_> {
         self.link_table = None;
         UnitBuilder::new(unit, &mut self[unit])
     }
 
     /// Return a mutable unit builder that should rebuild on exit.
-    pub fn unit_mut_with_rebuild(&mut self, unit: UnitId) -> UnitBuilderWithRebuild {
+    pub fn unit_mut_with_rebuild(&mut self, unit: UnitId) -> UnitBuilderWithRebuild<'_> {
         UnitBuilderWithRebuild::new(self.unit_mut(unit))
     }
 
     /// Return an iterator over the symbols in the module.
-    pub fn symbols<'a>(&'a self) -> impl Iterator<Item = (&UnitName, LinkedUnit, &Signature)> + 'a {
+    pub fn symbols<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (&'a UnitName, LinkedUnit, &'a Signature)> + 'a {
         self.units()
             .map(|unit| (unit.name(), LinkedUnit::Def(unit.id()), unit.sig()))
             .chain(
@@ -169,14 +171,14 @@ impl Module {
     /// Return an iterator over the local symbols in the module.
     pub fn local_symbols<'a>(
         &'a self,
-    ) -> impl Iterator<Item = (&UnitName, LinkedUnit, &Signature)> + 'a {
+    ) -> impl Iterator<Item = (&'a UnitName, LinkedUnit, &'a Signature)> + 'a {
         self.symbols().filter(|&(name, ..)| name.is_local())
     }
 
     /// Return an iterator over the global symbols in the module.
     pub fn global_symbols<'a>(
         &'a self,
-    ) -> impl Iterator<Item = (&UnitName, LinkedUnit, &Signature)> + 'a {
+    ) -> impl Iterator<Item = (&'a UnitName, LinkedUnit, &'a Signature)> + 'a {
         self.symbols().filter(|&(name, ..)| name.is_global())
     }
 

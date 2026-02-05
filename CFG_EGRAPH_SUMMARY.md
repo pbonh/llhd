@@ -5,7 +5,7 @@ This document summarizes the recent additions to LLHD for integrating a CFG skel
 ## Overview
 
 - Each unit now stores transient CFG skeleton and e-graph data in parallel with existing IR.
-- The e-graph captures non-stateful (pure) DFG operations using the egglog schema from `Wirelog/resources/egglog/llhd_dfg_sort.egg`.
+- The e-graph captures non-stateful (pure) DFG operations using a Rust-encoded equivalent of `Wirelog/resources/egglog/llhd_dfg_sort.egg`.
 - The CFG skeleton anchors control flow, side effects, and phi semantics as block arguments referencing e-classes.
 - Data is transient and not serialized into LLHD assembly or binary formats.
 
@@ -13,6 +13,7 @@ This document summarizes the recent additions to LLHD for integrating a CFG skel
 
 - `CfgSkeleton` and related types in `llhd/src/ir/cfg_skeleton.rs`.
 - `UnitEGraph` and helpers in `llhd/src/ir/egraph.rs`.
+- `LlhdDfgSchema` and bridge constructors in `llhd/src/ir/egglog_schema.rs`.
 - `UnitData` now holds:
   - `cfg_skeleton: CfgSkeleton`
   - `egraph: UnitEGraph`

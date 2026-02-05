@@ -1,6 +1,6 @@
 use crate::ir::{is_pure_opcode, EClassRef, UnitEGraph};
 use crate::ir::{Block, Inst, InstData, Opcode, Unit, Value};
-use egglog::Error;
+use anyhow::Result;
 use std::collections::HashMap;
 use std::fmt::Write;
 
@@ -117,7 +117,7 @@ pub enum SkeletonTerminator {
 
 impl CfgSkeleton {
     /// Build a CFG skeleton from a unit and its e-graph mapping.
-    pub fn build_from_unit(unit: &Unit<'_>, egraph: &mut UnitEGraph) -> Result<Self, Error> {
+    pub fn build_from_unit(unit: &Unit<'_>, egraph: &mut UnitEGraph) -> Result<Self> {
         let phi_map = collect_phi_info(unit, egraph)?;
         let mut blocks = Vec::new();
 
@@ -287,7 +287,7 @@ struct PhiInfo {
 fn collect_phi_info(
     unit: &Unit<'_>,
     egraph: &mut UnitEGraph,
-) -> Result<HashMap<Block, Vec<PhiInfo>>, Error> {
+) -> Result<HashMap<Block, Vec<PhiInfo>>> {
     let mut out: HashMap<Block, Vec<PhiInfo>> = HashMap::new();
     for bb in unit.blocks() {
         for inst in unit.insts(bb) {
@@ -324,7 +324,7 @@ fn build_terminator(
     inst: Inst,
     phi_map: &HashMap<Block, Vec<PhiInfo>>,
     pred: Block,
-) -> Result<SkeletonTerminator, Error> {
+) -> Result<SkeletonTerminator> {
     let data = &unit[inst];
     let opcode = data.opcode();
     match data {

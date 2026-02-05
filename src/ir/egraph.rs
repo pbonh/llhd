@@ -1,15 +1,18 @@
-use crate::ir::{Inst, InstData, Opcode, Unit, Value, ValueData};
+use crate::ir::{
+    egglog_schema::{LlhdDfgSchema, VecValue},
+    Inst, InstData, Opcode, Unit, Value, ValueData,
+};
 use crate::table::TableKey;
 use crate::ty::{void_ty, Type, TypeKind};
-use egglog::{EGraph, Error, Value as EggValue};
+use anyhow::{anyhow, Result};
+use egglog_bridge::EGraph;
+use egglog_core_relations::Value as BridgeValue;
 use std::collections::HashMap;
 use std::fmt::{self, Write};
 
-const LLHD_DFG_SORTS: &str = include_str!("../../../Wirelog/resources/egglog/llhd_dfg_sort.egg");
-
 /// A reference to an egglog e-class.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct EClassRef(pub EggValue);
+pub struct EClassRef(pub BridgeValue);
 
 impl fmt::Display for EClassRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -18,31 +21,52 @@ impl fmt::Display for EClassRef {
 }
 
 /// An egglog e-graph backing a single LLHD unit.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct UnitEGraph {
-    /// The underlying egglog e-graph.
+    /// Underlying egglog e-graph instance.
     pub egraph: EGraph,
-    /// Value to e-class mapping for the unit.
+    /// Registered schema tables for LLHD DFG terms.
+    pub schema: LlhdDfgSchema,
+    /// Map from LLHD values to their e-class representatives.
     pub value_classes: HashMap<Value, EClassRef>,
+    value_nodes: HashMap<Value, BridgeValue>,
+    ty_nodes: HashMap<Type, BridgeValue>,
 }
 
 impl fmt::Debug for UnitEGraph {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("UnitEGraph")
-            .field("egraph_tuples", &self.egraph.num_tuples())
+            .field("egraph_tuples", &self.schema.total_table_size(&self.egraph))
             .field("value_classes", &self.value_classes.len())
             .finish()
     }
 }
 
+impl Default for UnitEGraph {
+    fn default() -> Self {
+        let mut egraph = EGraph::default();
+        let schema = LlhdDfgSchema::register(&mut egraph);
+        Self {
+            egraph,
+            schema,
+            value_classes: HashMap::new(),
+            value_nodes: HashMap::new(),
+            ty_nodes: HashMap::new(),
+        }
+    }
+}
+
 impl UnitEGraph {
     /// Build an e-graph for a unit and map values to e-classes.
-    pub fn build_from_unit(unit: &Unit<'_>) -> Result<Self, Error> {
+    pub fn build_from_unit(unit: &Unit<'_>) -> Result<Self> {
         let mut egraph = EGraph::default();
-        egraph.parse_and_run_program(None, LLHD_DFG_SORTS)?;
+        let schema = LlhdDfgSchema::register(&mut egraph);
         let mut out = Self {
             egraph,
+            schema,
             value_classes: HashMap::new(),
+            value_nodes: HashMap::new(),
+            ty_nodes: HashMap::new(),
         };
         out.populate_from_unit(unit)?;
         Ok(out)
@@ -54,12 +78,11 @@ impl UnitEGraph {
     }
 
     /// Ensure an e-class exists for a value by inserting a ValueRef if needed.
-    pub fn ensure_value_ref(&mut self, unit: &Unit<'_>, value: Value) -> Result<EClassRef, Error> {
+    pub fn ensure_value_ref(&mut self, unit: &Unit<'_>, value: Value) -> Result<EClassRef> {
         if let Some(class) = self.class_for_value(value) {
             return Ok(class);
         }
-        let expr = value_ref_expr(unit, value);
-        let class = self.eval_expr_str(&expr)?;
+        let class = EClassRef(self.mk_value_ref(unit, value)?);
         self.value_classes.insert(value, class);
         Ok(class)
     }
@@ -67,34 +90,380 @@ impl UnitEGraph {
     /// Dump the e-graph mapping for debugging.
     pub fn dump(&self, unit: &Unit<'_>) -> String {
         let mut out = String::new();
-        let _ = writeln!(out, "egraph tuples: {}", self.egraph.num_tuples());
+        let _ = writeln!(
+            out,
+            "egraph tuples: {}",
+            self.schema.total_table_size(&self.egraph)
+        );
         for (value, class) in self.value_classes.iter() {
             let _ = writeln!(out, "{} => {}", value.dump(unit), class);
         }
         out
     }
 
-    fn populate_from_unit(&mut self, unit: &Unit<'_>) -> Result<(), Error> {
-        let mut expr_cache: HashMap<Value, String> = HashMap::new();
+    fn populate_from_unit(&mut self, unit: &Unit<'_>) -> Result<()> {
         for value in unit.args() {
-            let expr = value_ref_expr(unit, value);
-            let class = self.eval_expr_str(&expr)?;
+            let class = self.ensure_value_ref(unit, value)?;
             self.value_classes.insert(value, class);
         }
         for inst in unit.all_insts() {
             if let Some(value) = unit.get_inst_result(inst) {
-                let expr = dfg_expr_for_value(unit, value, &mut expr_cache);
-                let class = self.eval_expr_str(&expr)?;
+                let class = self.build_value_class(unit, value)?;
                 self.value_classes.insert(value, class);
             }
         }
         Ok(())
     }
 
-    fn eval_expr_str(&mut self, expr: &str) -> Result<EClassRef, Error> {
-        let expr = self.egraph.parser.get_expr_from_string(None, expr)?;
-        let (_sort, value) = self.egraph.eval_expr(&expr)?;
-        Ok(EClassRef(value))
+    fn build_value_class(&mut self, unit: &Unit<'_>, value: Value) -> Result<EClassRef> {
+        if let Some(class) = self.value_classes.get(&value) {
+            return Ok(*class);
+        }
+        let class = match &unit[value] {
+            ValueData::Arg { .. } | ValueData::Placeholder { .. } | ValueData::Invalid => {
+                self.ensure_value_ref(unit, value)?
+            }
+            ValueData::Inst { inst, .. } => {
+                let inst_data = &unit[*inst];
+                if is_pure_opcode(inst_data.opcode()) {
+                    EClassRef(self.build_pure_inst(unit, *inst, inst_data)?)
+                } else {
+                    self.ensure_value_ref(unit, value)?
+                }
+            }
+        };
+        Ok(class)
+    }
+
+    fn build_pure_inst(
+        &mut self,
+        unit: &Unit<'_>,
+        inst: Inst,
+        data: &InstData,
+    ) -> Result<BridgeValue> {
+        let inst_id = to_i64(inst.index())?;
+        let ty = unit.inst_type(inst);
+        let ty_id = self.mk_llhd_ty(&ty)?;
+        let opcode = data.opcode();
+
+        let term = match data {
+            InstData::ConstInt { imm, .. } => self.mk_const_int(inst_id, ty_id, imm.to_string()),
+            InstData::ConstTime { imm, .. } => self.mk_const_time(inst_id, ty_id, imm.to_string()),
+            InstData::Array { imms, args, .. } if opcode == Opcode::ArrayUniform => {
+                let len = to_i64(imms[0])?;
+                let arg = self.build_value_class(unit, args[0])?.0;
+                self.mk_array_uniform(inst_id, ty_id, len, arg)
+            }
+            InstData::Aggregate { args, .. } if opcode == Opcode::Array => {
+                let values = self.values_as_llhd_values(unit, args)?;
+                self.mk_array(inst_id, values)
+            }
+            InstData::Aggregate { args, .. } if opcode == Opcode::Struct => {
+                let values = self.values_as_llhd_values(unit, args)?;
+                self.mk_struct(inst_id, values)
+            }
+            InstData::Unary { args, .. } => {
+                let arg = self.build_value_class(unit, args[0])?.0;
+                match opcode {
+                    Opcode::Alias => self.mk_alias(inst_id, ty_id, arg),
+                    Opcode::Not => self.mk_unary(self.schema.dfg_not, inst_id, ty_id, arg),
+                    Opcode::Neg => self.mk_unary(self.schema.dfg_neg, inst_id, ty_id, arg),
+                    _ => self.mk_value_ref(unit, unit.inst_result(inst))?,
+                }
+            }
+            InstData::Binary { args, .. } => {
+                let lhs = self.build_value_class(unit, args[0])?.0;
+                let rhs = self.build_value_class(unit, args[1])?.0;
+                match opcode {
+                    Opcode::Add => self.mk_binary(self.schema.dfg_add, inst_id, ty_id, lhs, rhs),
+                    Opcode::Sub => self.mk_binary(self.schema.dfg_sub, inst_id, ty_id, lhs, rhs),
+                    Opcode::And => self.mk_binary(self.schema.dfg_and, inst_id, ty_id, lhs, rhs),
+                    Opcode::Or => self.mk_binary(self.schema.dfg_or, inst_id, ty_id, lhs, rhs),
+                    Opcode::Xor => self.mk_binary(self.schema.dfg_xor, inst_id, ty_id, lhs, rhs),
+                    Opcode::Smul => self.mk_binary(self.schema.dfg_smul, inst_id, ty_id, lhs, rhs),
+                    Opcode::Sdiv => self.mk_binary(self.schema.dfg_sdiv, inst_id, ty_id, lhs, rhs),
+                    Opcode::Smod => self.mk_binary(self.schema.dfg_smod, inst_id, ty_id, lhs, rhs),
+                    Opcode::Srem => self.mk_binary(self.schema.dfg_srem, inst_id, ty_id, lhs, rhs),
+                    Opcode::Umul => self.mk_binary(self.schema.dfg_umul, inst_id, ty_id, lhs, rhs),
+                    Opcode::Udiv => self.mk_binary(self.schema.dfg_udiv, inst_id, ty_id, lhs, rhs),
+                    Opcode::Umod => self.mk_binary(self.schema.dfg_umod, inst_id, ty_id, lhs, rhs),
+                    Opcode::Urem => self.mk_binary(self.schema.dfg_urem, inst_id, ty_id, lhs, rhs),
+                    Opcode::Eq => self.mk_binary(self.schema.dfg_eq, inst_id, ty_id, lhs, rhs),
+                    Opcode::Neq => self.mk_binary(self.schema.dfg_neq, inst_id, ty_id, lhs, rhs),
+                    Opcode::Slt => self.mk_binary(self.schema.dfg_slt, inst_id, ty_id, lhs, rhs),
+                    Opcode::Sgt => self.mk_binary(self.schema.dfg_sgt, inst_id, ty_id, lhs, rhs),
+                    Opcode::Sle => self.mk_binary(self.schema.dfg_sle, inst_id, ty_id, lhs, rhs),
+                    Opcode::Sge => self.mk_binary(self.schema.dfg_sge, inst_id, ty_id, lhs, rhs),
+                    Opcode::Ult => self.mk_binary(self.schema.dfg_ult, inst_id, ty_id, lhs, rhs),
+                    Opcode::Ugt => self.mk_binary(self.schema.dfg_ugt, inst_id, ty_id, lhs, rhs),
+                    Opcode::Ule => self.mk_binary(self.schema.dfg_ule, inst_id, ty_id, lhs, rhs),
+                    Opcode::Uge => self.mk_binary(self.schema.dfg_uge, inst_id, ty_id, lhs, rhs),
+                    Opcode::Mux => self.mk_binary(self.schema.dfg_mux, inst_id, ty_id, lhs, rhs),
+                    _ => self.mk_value_ref(unit, unit.inst_result(inst))?,
+                }
+            }
+            InstData::Ternary { args, .. } => {
+                let a = self.build_value_class(unit, args[0])?.0;
+                let b = self.build_value_class(unit, args[1])?.0;
+                let c = self.build_value_class(unit, args[2])?.0;
+                match opcode {
+                    Opcode::Shl => self.mk_ternary(self.schema.dfg_shl, inst_id, ty_id, a, b, c),
+                    Opcode::Shr => self.mk_ternary(self.schema.dfg_shr, inst_id, ty_id, a, b, c),
+                    _ => self.mk_value_ref(unit, unit.inst_result(inst))?,
+                }
+            }
+            InstData::InsExt { args, imms, .. }
+                if opcode == Opcode::InsField
+                    || opcode == Opcode::InsSlice
+                    || opcode == Opcode::ExtField
+                    || opcode == Opcode::ExtSlice =>
+            {
+                let a = self.build_value_class(unit, args[0])?.0;
+                let b = self.build_value_class(unit, args[1])?.0;
+                let imm0 = *imms.get(0).unwrap_or(&0);
+                let imm1 = *imms.get(1).unwrap_or(&0);
+                let imm0 = to_i64(imm0)?;
+                let imm1 = to_i64(imm1)?;
+                match opcode {
+                    Opcode::InsField => {
+                        self.mk_insext(self.schema.dfg_ins_field, inst_id, ty_id, a, b, imm0, imm1)
+                    }
+                    Opcode::InsSlice => {
+                        self.mk_insext(self.schema.dfg_ins_slice, inst_id, ty_id, a, b, imm0, imm1)
+                    }
+                    Opcode::ExtField => {
+                        self.mk_insext(self.schema.dfg_ext_field, inst_id, ty_id, a, b, imm0, imm1)
+                    }
+                    Opcode::ExtSlice => {
+                        self.mk_insext(self.schema.dfg_ext_slice, inst_id, ty_id, a, b, imm0, imm1)
+                    }
+                    _ => self.mk_value_ref(unit, unit.inst_result(inst))?,
+                }
+            }
+            _ => self.mk_value_ref(unit, unit.inst_result(inst))?,
+        };
+
+        Ok(term)
+    }
+
+    fn mk_value_ref(&mut self, unit: &Unit<'_>, value: Value) -> Result<BridgeValue> {
+        let llhd_value = self.mk_llhd_value(unit, value)?;
+        Ok(self.add_term(self.schema.dfg_value_ref, vec![llhd_value]))
+    }
+
+    fn mk_llhd_value(&mut self, unit: &Unit<'_>, value: Value) -> Result<BridgeValue> {
+        if let Some(node) = self.value_nodes.get(&value) {
+            return Ok(*node);
+        }
+        let ty = match &unit[value] {
+            ValueData::Invalid => void_ty(),
+            _ => unit.value_type(value),
+        };
+        let ty_id = self.mk_llhd_ty(&ty)?;
+        let id = to_i64(value.index())?;
+        let id_value = self.base_i64(id);
+        let node = self.add_term(self.schema.value, vec![ty_id, id_value]);
+        self.value_nodes.insert(value, node);
+        Ok(node)
+    }
+
+    fn values_as_llhd_values(
+        &mut self,
+        unit: &Unit<'_>,
+        values: &[Value],
+    ) -> Result<Vec<BridgeValue>> {
+        values
+            .iter()
+            .map(|&value| self.mk_llhd_value(unit, value))
+            .collect()
+    }
+
+    fn mk_llhd_ty(&mut self, ty: &Type) -> Result<BridgeValue> {
+        if let Some(node) = self.ty_nodes.get(ty) {
+            return Ok(*node);
+        }
+        let node = match ty.as_ref() {
+            TypeKind::VoidType => self.add_term(self.schema.ty_void, vec![]),
+            TypeKind::TimeType => self.add_term(self.schema.ty_time, vec![]),
+            TypeKind::IntType(bits) => {
+                let bits = to_i64(*bits)?;
+                let bits_value = self.base_i64(bits);
+                self.add_term(self.schema.ty_int, vec![bits_value])
+            }
+            TypeKind::EnumType(states) => {
+                let states = to_i64(*states)?;
+                let states_value = self.base_i64(states);
+                self.add_term(self.schema.ty_enum, vec![states_value])
+            }
+            TypeKind::PointerType(inner) => {
+                let inner = self.mk_llhd_ty(inner)?;
+                self.add_term(self.schema.ty_pointer, vec![inner])
+            }
+            TypeKind::SignalType(inner) => {
+                let inner = self.mk_llhd_ty(inner)?;
+                self.add_term(self.schema.ty_signal, vec![inner])
+            }
+            TypeKind::ArrayType(len, inner) => {
+                let len = to_i64(*len)?;
+                let inner = self.mk_llhd_ty(inner)?;
+                let len_value = self.base_i64(len);
+                self.add_term(self.schema.ty_array, vec![len_value, inner])
+            }
+            TypeKind::StructType(fields) => {
+                let elems = fields
+                    .iter()
+                    .map(|field| self.mk_llhd_ty(field))
+                    .collect::<Result<Vec<_>>>()?;
+                let vec_value = self.base_vec(elems);
+                self.add_term(self.schema.ty_struct, vec![vec_value])
+            }
+            TypeKind::FuncType(args, ret) => {
+                let args = args
+                    .iter()
+                    .map(|arg| self.mk_llhd_ty(arg))
+                    .collect::<Result<Vec<_>>>()?;
+                let args = self.base_vec(args);
+                let ret = self.mk_llhd_ty(ret)?;
+                self.add_term(self.schema.ty_func, vec![args, ret])
+            }
+            TypeKind::EntityType(ins, outs) => {
+                let ins = ins
+                    .iter()
+                    .map(|arg| self.mk_llhd_ty(arg))
+                    .collect::<Result<Vec<_>>>()?;
+                let outs = outs
+                    .iter()
+                    .map(|arg| self.mk_llhd_ty(arg))
+                    .collect::<Result<Vec<_>>>()?;
+                let ins = self.base_vec(ins);
+                let outs = self.base_vec(outs);
+                self.add_term(self.schema.ty_entity, vec![ins, outs])
+            }
+        };
+        self.ty_nodes.insert(ty.clone(), node);
+        Ok(node)
+    }
+
+    fn mk_const_int(&mut self, inst_id: i64, ty_id: BridgeValue, text: String) -> BridgeValue {
+        let inst_value = self.base_i64(inst_id);
+        let text_value = self.base_string(text);
+        self.add_term(
+            self.schema.dfg_const_int,
+            vec![inst_value, ty_id, text_value],
+        )
+    }
+
+    fn mk_const_time(&mut self, inst_id: i64, ty_id: BridgeValue, text: String) -> BridgeValue {
+        let inst_value = self.base_i64(inst_id);
+        let text_value = self.base_string(text);
+        self.add_term(
+            self.schema.dfg_const_time,
+            vec![inst_value, ty_id, text_value],
+        )
+    }
+
+    fn mk_alias(&mut self, inst_id: i64, ty_id: BridgeValue, arg: BridgeValue) -> BridgeValue {
+        let inst_value = self.base_i64(inst_id);
+        self.add_term(self.schema.dfg_alias, vec![inst_value, ty_id, arg])
+    }
+
+    fn mk_unary(
+        &mut self,
+        func: egglog_bridge::FunctionId,
+        inst_id: i64,
+        ty_id: BridgeValue,
+        arg: BridgeValue,
+    ) -> BridgeValue {
+        let inst_value = self.base_i64(inst_id);
+        self.add_term(func, vec![inst_value, ty_id, arg])
+    }
+
+    fn mk_binary(
+        &mut self,
+        func: egglog_bridge::FunctionId,
+        inst_id: i64,
+        ty_id: BridgeValue,
+        lhs: BridgeValue,
+        rhs: BridgeValue,
+    ) -> BridgeValue {
+        let inst_value = self.base_i64(inst_id);
+        self.add_term(func, vec![inst_value, ty_id, lhs, rhs])
+    }
+
+    fn mk_ternary(
+        &mut self,
+        func: egglog_bridge::FunctionId,
+        inst_id: i64,
+        ty_id: BridgeValue,
+        a: BridgeValue,
+        b: BridgeValue,
+        c: BridgeValue,
+    ) -> BridgeValue {
+        let inst_value = self.base_i64(inst_id);
+        self.add_term(func, vec![inst_value, ty_id, a, b, c])
+    }
+
+    fn mk_insext(
+        &mut self,
+        func: egglog_bridge::FunctionId,
+        inst_id: i64,
+        ty_id: BridgeValue,
+        a: BridgeValue,
+        b: BridgeValue,
+        imm0: i64,
+        imm1: i64,
+    ) -> BridgeValue {
+        let inst_value = self.base_i64(inst_id);
+        let imm0_value = self.base_i64(imm0);
+        let imm1_value = self.base_i64(imm1);
+        self.add_term(func, vec![inst_value, ty_id, a, b, imm0_value, imm1_value])
+    }
+
+    fn mk_array_uniform(
+        &mut self,
+        inst_id: i64,
+        ty_id: BridgeValue,
+        len: i64,
+        arg: BridgeValue,
+    ) -> BridgeValue {
+        let inst_value = self.base_i64(inst_id);
+        let len_value = self.base_i64(len);
+        self.add_term(
+            self.schema.dfg_array_uniform,
+            vec![inst_value, ty_id, len_value, arg],
+        )
+    }
+
+    fn mk_array(&mut self, inst_id: i64, values: Vec<BridgeValue>) -> BridgeValue {
+        let inst_value = self.base_i64(inst_id);
+        let vec_value = self.base_vec(values);
+        self.add_term(self.schema.dfg_array, vec![inst_value, vec_value])
+    }
+
+    fn mk_struct(&mut self, inst_id: i64, values: Vec<BridgeValue>) -> BridgeValue {
+        let inst_value = self.base_i64(inst_id);
+        let vec_value = self.base_vec(values);
+        self.add_term(self.schema.dfg_struct, vec![inst_value, vec_value])
+    }
+
+    fn add_term(
+        &mut self,
+        func: egglog_bridge::FunctionId,
+        inputs: Vec<BridgeValue>,
+    ) -> BridgeValue {
+        self.egraph.add_term(func, &inputs, "")
+    }
+
+    fn base_i64(&mut self, value: i64) -> BridgeValue {
+        self.egraph.base_values().get::<i64>(value)
+    }
+
+    fn base_string(&mut self, value: String) -> BridgeValue {
+        self.egraph.base_values().get::<String>(value)
+    }
+
+    fn base_vec(&mut self, values: Vec<BridgeValue>) -> BridgeValue {
+        self.egraph.base_values().get::<VecValue>(VecValue(values))
     }
 }
 
@@ -143,223 +512,6 @@ pub fn is_pure_opcode(opcode: Opcode) -> bool {
     )
 }
 
-fn dfg_expr_for_value(unit: &Unit<'_>, value: Value, cache: &mut HashMap<Value, String>) -> String {
-    if let Some(expr) = cache.get(&value) {
-        return expr.clone();
-    }
-    let expr = match unit[value].clone() {
-        ValueData::Arg { .. } => value_ref_expr(unit, value),
-        ValueData::Placeholder { .. } => value_ref_expr(unit, value),
-        ValueData::Invalid => value_ref_expr_with_type(void_ty(), value),
-        ValueData::Inst { inst, .. } => {
-            let inst_data = &unit[inst];
-            if is_pure_opcode(inst_data.opcode()) {
-                inst_expr(unit, inst, inst_data, cache)
-            } else {
-                value_ref_expr(unit, value)
-            }
-        }
-    };
-    cache.insert(value, expr.clone());
-    expr
-}
-
-fn inst_expr(
-    unit: &Unit<'_>,
-    inst: Inst,
-    inst_data: &InstData,
-    cache: &mut HashMap<Value, String>,
-) -> String {
-    let inst_id = format_i64(inst.index());
-    let ty_expr = type_expr(&unit.inst_type(inst));
-    let opcode = inst_data.opcode();
-
-    match inst_data {
-        InstData::ConstInt { imm, .. } => format!(
-            "({} {} {} \"{}\")",
-            opcode_symbol(opcode),
-            inst_id,
-            ty_expr,
-            escape_string(&imm.to_string())
-        ),
-        InstData::ConstTime { imm, .. } => format!(
-            "({} {} {} \"{}\")",
-            opcode_symbol(opcode),
-            inst_id,
-            ty_expr,
-            escape_string(&imm.to_string())
-        ),
-        InstData::Array { imms, args, .. } if opcode == Opcode::ArrayUniform => format!(
-            "({} {} {} {} {})",
-            opcode_symbol(opcode),
-            inst_id,
-            ty_expr,
-            format_i64(imms[0]),
-            dfg_expr_for_value(unit, args[0], cache)
-        ),
-        InstData::Aggregate { args, .. } if opcode == Opcode::Array || opcode == Opcode::Struct => {
-            let values = args
-                .iter()
-                .map(|&arg| value_expr(unit, arg))
-                .collect::<Vec<_>>();
-            format!(
-                "({} {} {})",
-                opcode_symbol(opcode),
-                inst_id,
-                vec_expr(&values)
-            )
-        }
-        InstData::Unary { args, .. } => format!(
-            "({} {} {} {})",
-            opcode_symbol(opcode),
-            inst_id,
-            ty_expr,
-            dfg_expr_for_value(unit, args[0], cache)
-        ),
-        InstData::Binary { args, .. } => format!(
-            "({} {} {} {} {})",
-            opcode_symbol(opcode),
-            inst_id,
-            ty_expr,
-            dfg_expr_for_value(unit, args[0], cache),
-            dfg_expr_for_value(unit, args[1], cache)
-        ),
-        InstData::Ternary { args, .. } => format!(
-            "({} {} {} {} {} {})",
-            opcode_symbol(opcode),
-            inst_id,
-            ty_expr,
-            dfg_expr_for_value(unit, args[0], cache),
-            dfg_expr_for_value(unit, args[1], cache),
-            dfg_expr_for_value(unit, args[2], cache)
-        ),
-        InstData::InsExt { args, imms, .. }
-            if opcode == Opcode::InsField
-                || opcode == Opcode::InsSlice
-                || opcode == Opcode::ExtField
-                || opcode == Opcode::ExtSlice =>
-        {
-            let imm0 = *imms.get(0).unwrap_or(&0);
-            let imm1 = *imms.get(1).unwrap_or(&0);
-            format!(
-                "({} {} {} {} {} {} {})",
-                opcode_symbol(opcode),
-                inst_id,
-                ty_expr,
-                dfg_expr_for_value(unit, args[0], cache),
-                dfg_expr_for_value(unit, args[1], cache),
-                format_i64(imm0),
-                format_i64(imm1)
-            )
-        }
-        _ => value_ref_expr(unit, unit.inst_result(inst)),
-    }
-}
-
-fn value_ref_expr(unit: &Unit<'_>, value: Value) -> String {
-    let ty = match unit[value] {
-        ValueData::Invalid => void_ty(),
-        _ => unit.value_type(value),
-    };
-    value_ref_expr_with_type(ty, value)
-}
-
-fn value_ref_expr_with_type(ty: Type, value: Value) -> String {
-    format!("(ValueRef {})", value_expr_with_type(&ty, value))
-}
-
-fn value_expr(unit: &Unit<'_>, value: Value) -> String {
-    let ty = unit.value_type(value);
-    value_expr_with_type(&ty, value)
-}
-
-fn value_expr_with_type(ty: &Type, value: Value) -> String {
-    format!("(Value {} {})", type_expr(ty), format_i64(value.index()))
-}
-
-fn type_expr(ty: &Type) -> String {
-    match ty.as_ref() {
-        TypeKind::VoidType => "(Void )".to_string(),
-        TypeKind::TimeType => "(Time )".to_string(),
-        TypeKind::IntType(bits) => format!("(IntTy {})", format_i64(*bits)),
-        TypeKind::EnumType(states) => format!("(Enum {})", format_i64(*states)),
-        TypeKind::PointerType(inner) => format!("(Pointer {})", type_expr(inner)),
-        TypeKind::SignalType(inner) => format!("(Signal {})", type_expr(inner)),
-        TypeKind::ArrayType(len, inner) => {
-            format!("(ArrayTy {} {})", format_i64(*len), type_expr(inner))
-        }
-        TypeKind::StructType(fields) => {
-            let elems = fields.iter().map(type_expr).collect::<Vec<_>>();
-            format!("(StructTy {})", vec_expr(&elems))
-        }
-        TypeKind::FuncType(args, ret) => {
-            let elems = args.iter().map(type_expr).collect::<Vec<_>>();
-            format!("(FuncTy {} {})", vec_expr(&elems), type_expr(ret))
-        }
-        TypeKind::EntityType(ins, outs) => {
-            let ins = ins.iter().map(type_expr).collect::<Vec<_>>();
-            let outs = outs.iter().map(type_expr).collect::<Vec<_>>();
-            format!("(EntityTy {} {})", vec_expr(&ins), vec_expr(&outs))
-        }
-    }
-}
-
-fn vec_expr(elems: &[String]) -> String {
-    if elems.is_empty() {
-        "(vec-empty)".to_string()
-    } else {
-        format!("(vec-of {})", elems.join(" "))
-    }
-}
-
-fn opcode_symbol(opcode: Opcode) -> &'static str {
-    match opcode {
-        Opcode::ConstInt => "ConstInt",
-        Opcode::ConstTime => "ConstTime",
-        Opcode::Alias => "Alias",
-        Opcode::ArrayUniform => "ArrayUniform",
-        Opcode::Array => "Array",
-        Opcode::Struct => "Struct",
-        Opcode::Not => "Not",
-        Opcode::Neg => "Neg",
-        Opcode::Add => "Add",
-        Opcode::Sub => "Sub",
-        Opcode::And => "And",
-        Opcode::Or => "Or",
-        Opcode::Xor => "Xor",
-        Opcode::Smul => "Smul",
-        Opcode::Sdiv => "Sdiv",
-        Opcode::Smod => "Smod",
-        Opcode::Srem => "Srem",
-        Opcode::Umul => "Umul",
-        Opcode::Udiv => "Udiv",
-        Opcode::Umod => "Umod",
-        Opcode::Urem => "Urem",
-        Opcode::Eq => "Eq",
-        Opcode::Neq => "Neq",
-        Opcode::Slt => "Slt",
-        Opcode::Sgt => "Sgt",
-        Opcode::Sle => "Sle",
-        Opcode::Sge => "Sge",
-        Opcode::Ult => "Ult",
-        Opcode::Ugt => "Ugt",
-        Opcode::Ule => "Ule",
-        Opcode::Uge => "Uge",
-        Opcode::Shl => "Shl",
-        Opcode::Shr => "Shr",
-        Opcode::Mux => "Mux",
-        Opcode::InsField => "InsField",
-        Opcode::InsSlice => "InsSlice",
-        Opcode::ExtField => "ExtField",
-        Opcode::ExtSlice => "ExtSlice",
-        _ => "ValueRef",
-    }
-}
-
-fn format_i64(value: usize) -> i64 {
-    i64::try_from(value).unwrap_or(i64::MAX)
-}
-
-fn escape_string(value: &str) -> String {
-    value.replace('\\', "\\\\").replace('"', "\\\"")
+fn to_i64(value: usize) -> Result<i64> {
+    i64::try_from(value).map_err(|_| anyhow!("value out of i64 range"))
 }

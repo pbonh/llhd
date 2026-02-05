@@ -10,6 +10,7 @@ use crate::{
     verifier::Verifier,
     void_ty, Type,
 };
+use anyhow::Result;
 use log::warn;
 use std::{
     collections::HashSet,
@@ -756,7 +757,7 @@ impl<'a> UnitBuilder<'a> {
     }
 
     /// Rebuild the CFG skeleton and e-graph from the unit's IR.
-    pub fn rebuild_skeleton_egraph(&mut self) -> Result<(), egglog::Error> {
+    pub fn rebuild_skeleton_egraph(&mut self) -> Result<()> {
         let unit = self.unit();
         let mut egraph = UnitEGraph::build_from_unit(&unit)?;
         let skeleton = CfgSkeleton::build_from_unit(&unit, &mut egraph)?;
@@ -766,7 +767,7 @@ impl<'a> UnitBuilder<'a> {
     }
 
     /// Finish building and rebuild the CFG skeleton and e-graph.
-    pub fn finish_rebuild(&mut self) -> Result<(), egglog::Error> {
+    pub fn finish_rebuild(&mut self) -> Result<()> {
         self.rebuild_skeleton_egraph()
     }
 
@@ -935,7 +936,7 @@ impl<'a> UnitBuilderWithRebuild<'a> {
     }
 
     /// Finish building and rebuild the CFG skeleton and e-graph.
-    pub fn finish_rebuild(mut self) -> Result<(), egglog::Error> {
+    pub fn finish_rebuild(mut self) -> Result<()> {
         self.rebuilt = true;
         self.builder
             .take()

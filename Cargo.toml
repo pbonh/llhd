@@ -26,7 +26,8 @@ rayon = "1.3"
 regex = "1"
 serde = { version = "1", features = ["derive", "rc"] }
 pretty_env_logger = "0.4"
-egglog = "1.0.0"
+egglog-bridge = { git = "https://github.com/egraphs-good/egglog", package = "egglog-bridge", branch = "main" }
+egglog-core-relations = { git = "https://github.com/egraphs-good/egglog", package = "egglog-core-relations", branch = "main" }
 
 [dev-dependencies]
 indoc = "1"
