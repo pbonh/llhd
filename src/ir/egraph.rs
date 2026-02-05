@@ -18,10 +18,21 @@ impl fmt::Display for EClassRef {
 }
 
 /// An egglog e-graph backing a single LLHD unit.
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct UnitEGraph {
+    /// The underlying egglog e-graph.
     pub egraph: EGraph,
+    /// Value to e-class mapping for the unit.
     pub value_classes: HashMap<Value, EClassRef>,
+}
+
+impl fmt::Debug for UnitEGraph {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("UnitEGraph")
+            .field("egraph_tuples", &self.egraph.num_tuples())
+            .field("value_classes", &self.value_classes.len())
+            .finish()
+    }
 }
 
 impl UnitEGraph {
@@ -87,6 +98,7 @@ impl UnitEGraph {
     }
 }
 
+/// Return true for opcodes that are pure in the DFG.
 pub fn is_pure_opcode(opcode: Opcode) -> bool {
     matches!(
         opcode,

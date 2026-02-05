@@ -7,67 +7,110 @@ use std::fmt::Write;
 /// A CFG skeleton for an LLHD unit, capturing control flow and side effects.
 #[derive(Debug, Clone, Default)]
 pub struct CfgSkeleton {
+    /// Blocks in traversal order with reduced IR details.
     pub blocks: Vec<SkeletonBlock>,
 }
 
+/// A block entry with arguments, statements, and terminator.
 #[derive(Debug, Clone)]
 pub struct SkeletonBlock {
+    /// The original block id.
     pub block: Block,
+    /// Block arguments mapped to e-classes.
     pub args: Vec<BlockArg>,
+    /// Effectful statements in this block.
     pub stmts: Vec<SkeletonStmt>,
+    /// Terminator for the block, if any.
     pub terminator: Option<SkeletonTerminator>,
 }
 
+/// A single block argument and its e-class.
 #[derive(Debug, Clone)]
 pub struct BlockArg {
+    /// The value for the argument.
     pub value: Value,
+    /// The e-class representing the argument.
     pub class: EClassRef,
 }
 
+/// A reduced statement capturing side effects.
 #[derive(Debug, Clone)]
 pub enum SkeletonStmt {
+    /// An effectful instruction with optional result class.
     Effect {
+        /// The instruction id.
         inst: Inst,
+        /// The opcode for the instruction.
         opcode: Opcode,
+        /// Argument e-classes.
         args: Vec<EClassRef>,
+        /// Result e-class, if any.
         result: Option<EClassRef>,
     },
 }
 
+/// A reduced terminator capturing control flow.
 #[derive(Debug, Clone)]
 pub enum SkeletonTerminator {
+    /// Unconditional branch.
     Br {
+        /// The branch instruction.
         inst: Inst,
+        /// Target block.
         target: Block,
+        /// Argument e-classes passed to the target.
         args: Vec<EClassRef>,
     },
+    /// Conditional branch.
     BrCond {
+        /// The branch instruction.
         inst: Inst,
+        /// Condition e-class.
         cond: EClassRef,
+        /// Then target block.
         then_target: Block,
+        /// Argument e-classes for the then edge.
         then_args: Vec<EClassRef>,
+        /// Else target block.
         else_target: Block,
+        /// Argument e-classes for the else edge.
         else_args: Vec<EClassRef>,
     },
+    /// Wait terminator with target block.
     Wait {
+        /// The wait instruction.
         inst: Inst,
+        /// Target block.
         target: Block,
+        /// Argument e-classes passed to the target.
         args: Vec<EClassRef>,
     },
+    /// Wait-for-time terminator with target block.
     WaitTime {
+        /// The waittime instruction.
         inst: Inst,
+        /// Time e-class.
         time: EClassRef,
+        /// Target block.
         target: Block,
+        /// Argument e-classes passed to the target.
         args: Vec<EClassRef>,
     },
+    /// Return terminator with no value.
     Ret {
+        /// The return instruction.
         inst: Inst,
     },
+    /// Return terminator with a value.
     RetValue {
+        /// The return instruction.
         inst: Inst,
+        /// Returned value e-class.
         value: EClassRef,
     },
+    /// Halt terminator.
     Halt {
+        /// The halt instruction.
         inst: Inst,
     },
 }

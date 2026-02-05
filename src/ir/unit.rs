@@ -921,14 +921,15 @@ impl<'a> UnitBuilder<'a> {
 
 /// A unit builder wrapper that rebuilds the CFG skeleton and e-graph on drop.
 pub struct UnitBuilderWithRebuild<'a> {
-    builder: UnitBuilder<'a>,
+    builder: Option<UnitBuilder<'a>>,
     rebuilt: bool,
 }
 
 impl<'a> UnitBuilderWithRebuild<'a> {
+    /// Wrap a unit builder to rebuild on drop.
     pub fn new(builder: UnitBuilder<'a>) -> Self {
         Self {
-            builder,
+            builder: Some(builder),
             rebuilt: false,
         }
     }
@@ -936,26 +937,36 @@ impl<'a> UnitBuilderWithRebuild<'a> {
     /// Finish building and rebuild the CFG skeleton and e-graph.
     pub fn finish_rebuild(mut self) -> Result<(), egglog::Error> {
         self.rebuilt = true;
-        self.builder.finish_rebuild()
+        self.builder
+            .take()
+            .expect("unit builder already consumed")
+            .finish_rebuild()
     }
 
     /// Finish building without rebuilding.
     pub fn finish(mut self) -> Unit<'a> {
         self.rebuilt = true;
-        self.builder.finish()
+        self.builder
+            .take()
+            .expect("unit builder already consumed")
+            .finish()
     }
 }
 
 impl<'a> Deref for UnitBuilderWithRebuild<'a> {
     type Target = UnitBuilder<'a>;
     fn deref(&self) -> &UnitBuilder<'a> {
-        &self.builder
+        self.builder
+            .as_ref()
+            .expect("unit builder already consumed")
     }
 }
 
 impl<'a> std::ops::DerefMut for UnitBuilderWithRebuild<'a> {
     fn deref_mut(&mut self) -> &mut UnitBuilder<'a> {
-        &mut self.builder
+        self.builder
+            .as_mut()
+            .expect("unit builder already consumed")
     }
 }
 
@@ -964,7 +975,10 @@ impl Drop for UnitBuilderWithRebuild<'_> {
         if self.rebuilt {
             return;
         }
-        if let Err(err) = self.builder.finish_rebuild() {
+        let Some(mut builder) = self.builder.take() else {
+            return;
+        };
+        if let Err(err) = builder.finish_rebuild() {
             warn!("Failed to rebuild CFG skeleton/egraph: {err}");
         }
     }
