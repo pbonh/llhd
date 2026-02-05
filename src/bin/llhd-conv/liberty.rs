@@ -390,6 +390,9 @@ impl<'a> RootVisitor<'a> {
             };
             builder.ins().con(arg, value);
         }
+        if let Err(err) = builder.finish_rebuild() {
+            log::warn!("Failed to rebuild CFG skeleton/egraph: {err}");
+        }
         self.module.add_unit(ent);
     }
 

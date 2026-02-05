@@ -9,7 +9,7 @@
 
 use crate::{
     impl_table_key,
-    ir::{ExtUnit, Signature, Unit, UnitBuilder, UnitData, UnitName},
+    ir::{ExtUnit, Signature, Unit, UnitBuilder, UnitBuilderWithRebuild, UnitData, UnitName},
     table::{PrimaryTable, TableKey},
     verifier::Verifier,
 };
@@ -149,6 +149,11 @@ impl Module {
     pub fn unit_mut(&mut self, unit: UnitId) -> UnitBuilder {
         self.link_table = None;
         UnitBuilder::new(unit, &mut self[unit])
+    }
+
+    /// Return a mutable unit builder that should rebuild on exit.
+    pub fn unit_mut_with_rebuild(&mut self, unit: UnitId) -> UnitBuilderWithRebuild {
+        UnitBuilderWithRebuild::new(self.unit_mut(unit))
     }
 
     /// Return an iterator over the symbols in the module.

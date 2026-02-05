@@ -24742,6 +24742,9 @@ fn __action10<'input>(
         for block in blocks {
             block.build(&mut builder, &mut context);
         }
+        if let Err(err) = builder.finish_rebuild() {
+            log::warn!("Failed to rebuild CFG skeleton/egraph: {err}");
+        }
         func
     }
 }
@@ -24793,6 +24796,9 @@ fn __action11<'input>(
         for block in blocks {
             block.build(&mut builder, &mut context);
         }
+        if let Err(err) = builder.finish_rebuild() {
+            log::warn!("Failed to rebuild CFG skeleton/egraph: {err}");
+        }
         prok
     }
 }
@@ -24843,6 +24849,9 @@ fn __action12<'input>(
         }
         for inst in insts {
             inst.build(&mut builder, &mut context);
+        }
+        if let Err(err) = builder.finish_rebuild() {
+            log::warn!("Failed to rebuild CFG skeleton/egraph: {err}");
         }
         ent
     }

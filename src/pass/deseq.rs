@@ -154,6 +154,10 @@ fn deseq_process(ctx: &PassContext, unit: &mut UnitBuilder) -> Option<UnitData> 
         });
 
     if migrated {
+        drop(mig);
+        if let Err(err) = builder.finish_rebuild() {
+            warn!("Failed to rebuild CFG skeleton/egraph: {err}");
+        }
         Some(entity)
     } else {
         trace!("Process {} not migrated", unit.name());

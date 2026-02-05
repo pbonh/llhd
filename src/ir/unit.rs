@@ -3,13 +3,14 @@
 use crate::{
     analysis::{DominatorTree, PredecessorTable, TemporalRegionGraph},
     ir::{
-        layout::BlockNode, prelude::*, BlockData, ControlFlowGraph, DataFlowGraph, ExtUnit,
-        ExtUnitData, FunctionLayout, InstBuilder, InstData, UnitId, ValueData,
+        layout::BlockNode, prelude::*, BlockData, CfgSkeleton, ControlFlowGraph, DataFlowGraph,
+        ExtUnit, ExtUnitData, FunctionLayout, InstBuilder, InstData, UnitEGraph, UnitId, ValueData,
     },
     table::TableKey,
     verifier::Verifier,
     void_ty, Type,
 };
+use log::warn;
 use std::{
     collections::HashSet,
     ops::{Deref, Index, IndexMut},
@@ -113,6 +114,10 @@ pub struct UnitData {
     pub(super) dfg: DataFlowGraph,
     pub(super) cfg: ControlFlowGraph,
     pub(super) layout: FunctionLayout,
+    #[serde(skip, default)]
+    pub cfg_skeleton: CfgSkeleton,
+    #[serde(skip, default)]
+    pub egraph: UnitEGraph,
 }
 
 impl UnitData {
@@ -134,6 +139,8 @@ impl UnitData {
             dfg: Default::default(),
             cfg: Default::default(),
             layout: Default::default(),
+            cfg_skeleton: Default::default(),
+            egraph: Default::default(),
         };
         let mut unit = UnitBuilder::new_anonymous(&mut data);
         if kind == UnitKind::Entity {
@@ -175,6 +182,26 @@ impl<'a> Unit<'a> {
     #[inline(always)]
     pub fn data(self) -> &'a UnitData {
         self.data
+    }
+
+    /// Get the unit's CFG skeleton.
+    pub fn cfg_skeleton(self) -> &'a CfgSkeleton {
+        &self.data.cfg_skeleton
+    }
+
+    /// Get the unit's egglog e-graph.
+    pub fn egraph(self) -> &'a UnitEGraph {
+        &self.data.egraph
+    }
+
+    /// Dump the CFG skeleton in human-readable form.
+    pub fn dump_cfg_skeleton(self) -> String {
+        self.data.cfg_skeleton.dump(&self)
+    }
+
+    /// Dump the e-graph mapping in human-readable form.
+    pub fn dump_unit_egraph(self) -> String {
+        self.data.egraph.dump(&self)
     }
 
     /// Get the kind of this unit.
@@ -718,6 +745,31 @@ impl<'a> UnitBuilder<'a> {
         self.data
     }
 
+    /// Get the unit's mutable CFG skeleton.
+    pub fn cfg_skeleton_mut(&mut self) -> &mut CfgSkeleton {
+        &mut self.data.cfg_skeleton
+    }
+
+    /// Get the unit's mutable egglog e-graph.
+    pub fn egraph_mut(&mut self) -> &mut UnitEGraph {
+        &mut self.data.egraph
+    }
+
+    /// Rebuild the CFG skeleton and e-graph from the unit's IR.
+    pub fn rebuild_skeleton_egraph(&mut self) -> Result<(), egglog::Error> {
+        let unit = self.unit();
+        let mut egraph = UnitEGraph::build_from_unit(&unit)?;
+        let skeleton = CfgSkeleton::build_from_unit(&unit, &mut egraph)?;
+        self.data.egraph = egraph;
+        self.data.cfg_skeleton = skeleton;
+        Ok(())
+    }
+
+    /// Finish building and rebuild the CFG skeleton and e-graph.
+    pub fn finish_rebuild(&mut self) -> Result<(), egglog::Error> {
+        self.rebuild_skeleton_egraph()
+    }
+
     /// Return the unit being built.
     pub fn unit(&'a self) -> Unit<'a> {
         self.unit
@@ -863,6 +915,57 @@ impl<'a> UnitBuilder<'a> {
             true
         } else {
             false
+        }
+    }
+}
+
+/// A unit builder wrapper that rebuilds the CFG skeleton and e-graph on drop.
+pub struct UnitBuilderWithRebuild<'a> {
+    builder: UnitBuilder<'a>,
+    rebuilt: bool,
+}
+
+impl<'a> UnitBuilderWithRebuild<'a> {
+    pub fn new(builder: UnitBuilder<'a>) -> Self {
+        Self {
+            builder,
+            rebuilt: false,
+        }
+    }
+
+    /// Finish building and rebuild the CFG skeleton and e-graph.
+    pub fn finish_rebuild(mut self) -> Result<(), egglog::Error> {
+        self.rebuilt = true;
+        self.builder.finish_rebuild()
+    }
+
+    /// Finish building without rebuilding.
+    pub fn finish(mut self) -> Unit<'a> {
+        self.rebuilt = true;
+        self.builder.finish()
+    }
+}
+
+impl<'a> Deref for UnitBuilderWithRebuild<'a> {
+    type Target = UnitBuilder<'a>;
+    fn deref(&self) -> &UnitBuilder<'a> {
+        &self.builder
+    }
+}
+
+impl<'a> std::ops::DerefMut for UnitBuilderWithRebuild<'a> {
+    fn deref_mut(&mut self) -> &mut UnitBuilder<'a> {
+        &mut self.builder
+    }
+}
+
+impl Drop for UnitBuilderWithRebuild<'_> {
+    fn drop(&mut self) {
+        if self.rebuilt {
+            return;
+        }
+        if let Err(err) = self.builder.finish_rebuild() {
+            warn!("Failed to rebuild CFG skeleton/egraph: {err}");
         }
     }
 }

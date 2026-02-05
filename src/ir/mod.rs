@@ -9,7 +9,9 @@
 use crate::{impl_table_key, ty::Type};
 
 mod cfg;
+mod cfg_skeleton;
 mod dfg;
+mod egraph;
 mod inst;
 mod layout;
 mod module;
@@ -18,7 +20,9 @@ mod sig;
 mod unit;
 
 use self::cfg::*;
+pub use self::cfg_skeleton::*;
 use self::dfg::*;
+pub use self::egraph::*;
 pub use self::inst::*;
 use self::layout::*;
 pub use self::module::*;

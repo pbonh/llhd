@@ -26,3 +26,4 @@ Are you interested in using open-source ideas to re-invent the hardware design s
 
 - [Language Reference](http://llhd.io/spec.html) ([source](https://github.com/fabianschuiki/llhd/blob/master/doc/LANGUAGE.md))
 - [API Documentation](https://docs.rs/llhd/)
+- [CFG Skeleton + Egglog E-Graph Summary](CFG_EGRAPH_SUMMARY.md)
