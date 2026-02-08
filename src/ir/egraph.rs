@@ -116,6 +116,9 @@ impl UnitEGraph {
     }
 
     fn build_value_class(&mut self, unit: &Unit<'_>, value: Value) -> Result<EClassRef> {
+        if value.is_invalid() {
+            return self.ensure_value_ref(unit, value);
+        }
         if let Some(class) = self.value_classes.get(&value) {
             return Ok(*class);
         }
@@ -255,9 +258,13 @@ impl UnitEGraph {
         if let Some(node) = self.value_nodes.get(&value) {
             return Ok(*node);
         }
-        let ty = match &unit[value] {
-            ValueData::Invalid => void_ty(),
-            _ => unit.value_type(value),
+        let ty = if value.is_invalid() {
+            void_ty()
+        } else {
+            match &unit[value] {
+                ValueData::Invalid => void_ty(),
+                _ => unit.value_type(value),
+            }
         };
         let ty_id = self.mk_llhd_ty(&ty)?;
         let id = to_i64(value.index())?;
