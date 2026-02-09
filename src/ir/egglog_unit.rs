@@ -1,6 +1,8 @@
 use crate::ir::{
     Block, CfgSkeleton, EClassRef, ExtUnit, InstData, Opcode, RegMode, Signature, Unit,
-    UnitBuilder, UnitData, UnitEGraph, UnitKind, UnitName, Value,
+    UnitBuilder, UnitData, UnitEGraph, UnitKind, UnitName, Value, CFG_SK_BLOCK, CFG_SK_BLOCK_ARG,
+    CFG_SK_EFFECT, CFG_SK_TERM_BR, CFG_SK_TERM_BR_COND, CFG_SK_TERM_HALT, CFG_SK_TERM_RET,
+    CFG_SK_TERM_RET_VALUE, CFG_SK_TERM_WAIT, CFG_SK_TERM_WAIT_TIME,
 };
 use crate::table::TableKey;
 use crate::ty::{
@@ -269,12 +271,12 @@ pub fn unit_to_egglog_program(unit: &Unit<'_>) -> Result<String> {
     let skeleton = CfgSkeleton::build_from_unit(unit, &mut egraph)?;
     for block in &skeleton.blocks {
         lines.push(format_term(&Term::List(vec![
-            Term::Atom("SkBlock".into()),
+            Term::Atom(CFG_SK_BLOCK.into()),
             Term::Atom(block.block.index().to_string()),
         ])));
         for arg in &block.args {
             lines.push(format_term(&Term::List(vec![
-                Term::Atom("SkBlockArg".into()),
+                Term::Atom(CFG_SK_BLOCK_ARG.into()),
                 Term::Atom(block.block.index().to_string()),
                 Term::Atom(arg.value.index().to_string()),
                 Term::Atom(eclass_id(arg.class).to_string()),
@@ -297,7 +299,7 @@ pub fn unit_to_egglog_program(unit: &Unit<'_>) -> Result<String> {
                         .map(|value| Term::Atom(eclass_id(value).to_string()))
                         .unwrap_or_else(|| Term::Atom("none".into()));
                     lines.push(format_term(&Term::List(vec![
-                        Term::Atom("SkEffect".into()),
+                        Term::Atom(CFG_SK_EFFECT.into()),
                         Term::Atom(block.block.index().to_string()),
                         Term::Atom(inst.index().to_string()),
                         Term::Atom(opcode_atom(*opcode).to_string()),
@@ -311,7 +313,7 @@ pub fn unit_to_egglog_program(unit: &Unit<'_>) -> Result<String> {
             match term {
                 crate::ir::SkeletonTerminator::Br { inst, target, args } => {
                     lines.push(format_term(&Term::List(vec![
-                        Term::Atom("SkTermBr".into()),
+                        Term::Atom(CFG_SK_TERM_BR.into()),
                         Term::Atom(block.block.index().to_string()),
                         Term::Atom(inst.index().to_string()),
                         Term::Atom(target.index().to_string()),
@@ -331,7 +333,7 @@ pub fn unit_to_egglog_program(unit: &Unit<'_>) -> Result<String> {
                     else_args,
                 } => {
                     lines.push(format_term(&Term::List(vec![
-                        Term::Atom("SkTermBrCond".into()),
+                        Term::Atom(CFG_SK_TERM_BR_COND.into()),
                         Term::Atom(block.block.index().to_string()),
                         Term::Atom(inst.index().to_string()),
                         Term::Atom(eclass_id(*cond).to_string()),
@@ -353,7 +355,7 @@ pub fn unit_to_egglog_program(unit: &Unit<'_>) -> Result<String> {
                 }
                 crate::ir::SkeletonTerminator::Wait { inst, target, args } => {
                     lines.push(format_term(&Term::List(vec![
-                        Term::Atom("SkTermWait".into()),
+                        Term::Atom(CFG_SK_TERM_WAIT.into()),
                         Term::Atom(block.block.index().to_string()),
                         Term::Atom(inst.index().to_string()),
                         Term::Atom(target.index().to_string()),
@@ -371,7 +373,7 @@ pub fn unit_to_egglog_program(unit: &Unit<'_>) -> Result<String> {
                     args,
                 } => {
                     lines.push(format_term(&Term::List(vec![
-                        Term::Atom("SkTermWaitTime".into()),
+                        Term::Atom(CFG_SK_TERM_WAIT_TIME.into()),
                         Term::Atom(block.block.index().to_string()),
                         Term::Atom(inst.index().to_string()),
                         Term::Atom(eclass_id(*time).to_string()),
@@ -385,14 +387,14 @@ pub fn unit_to_egglog_program(unit: &Unit<'_>) -> Result<String> {
                 }
                 crate::ir::SkeletonTerminator::Ret { inst } => {
                     lines.push(format_term(&Term::List(vec![
-                        Term::Atom("SkTermRet".into()),
+                        Term::Atom(CFG_SK_TERM_RET.into()),
                         Term::Atom(block.block.index().to_string()),
                         Term::Atom(inst.index().to_string()),
                     ])));
                 }
                 crate::ir::SkeletonTerminator::RetValue { inst, value } => {
                     lines.push(format_term(&Term::List(vec![
-                        Term::Atom("SkTermRetValue".into()),
+                        Term::Atom(CFG_SK_TERM_RET_VALUE.into()),
                         Term::Atom(block.block.index().to_string()),
                         Term::Atom(inst.index().to_string()),
                         Term::Atom(eclass_id(*value).to_string()),
@@ -400,7 +402,7 @@ pub fn unit_to_egglog_program(unit: &Unit<'_>) -> Result<String> {
                 }
                 crate::ir::SkeletonTerminator::Halt { inst } => {
                     lines.push(format_term(&Term::List(vec![
-                        Term::Atom("SkTermHalt".into()),
+                        Term::Atom(CFG_SK_TERM_HALT.into()),
                         Term::Atom(block.block.index().to_string()),
                         Term::Atom(inst.index().to_string()),
                     ])));
@@ -825,8 +827,16 @@ fn parse_program(program: &str) -> Result<ParsedProgram> {
                 let (inst_id, modes) = parse_reg_modes(rest)?;
                 parsed.reg_modes.insert(inst_id, modes);
             }
-            "SkBlock" | "SkBlockArg" | "SkEffect" | "SkTermBr" | "SkTermBrCond" | "SkTermWait"
-            | "SkTermWaitTime" | "SkTermRet" | "SkTermRetValue" | "SkTermHalt" => {
+            CFG_SK_BLOCK
+            | CFG_SK_BLOCK_ARG
+            | CFG_SK_EFFECT
+            | CFG_SK_TERM_BR
+            | CFG_SK_TERM_BR_COND
+            | CFG_SK_TERM_WAIT
+            | CFG_SK_TERM_WAIT_TIME
+            | CFG_SK_TERM_RET
+            | CFG_SK_TERM_RET_VALUE
+            | CFG_SK_TERM_HALT => {
                 // Skeleton entries are parsed but not required for reconstruction.
             }
             other => bail!("unknown term {}", other),
