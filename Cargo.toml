@@ -30,6 +30,9 @@ egglog-bridge = { git = "https://github.com/egraphs-good/egglog", package = "egg
 egglog-core-relations = { git = "https://github.com/egraphs-good/egglog", package = "egglog-core-relations", branch = "main" }
 egglog-numeric-id = { git = "https://github.com/egraphs-good/egglog", package = "egglog-numeric-id", branch = "main" }
 
+[features]
+egglog-debug = []
+
 [dev-dependencies]
 indoc = "1"
 

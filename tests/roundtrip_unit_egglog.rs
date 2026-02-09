@@ -7,6 +7,11 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+#[cfg(feature = "egglog-debug")]
+use llhd::ir::dump_egglog_debug;
+#[cfg(feature = "egglog-debug")]
+use std::sync::Once;
+
 fn collect_llhd_files(root: &Path, out: &mut Vec<PathBuf>) {
     let entries = match fs::read_dir(root) {
         Ok(entries) => entries,
@@ -301,6 +306,62 @@ fn units_equivalent(left: Unit<'_>, right: Unit<'_>) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(feature = "egglog-debug")]
+fn maybe_dump_egglog_program(path: &Path, unit_index: usize, unit: Unit<'_>, program: &str) {
+    static INIT: Once = Once::new();
+    static NOTICE: Once = Once::new();
+    let enabled = env::var("LLHD_EGGLOG_DEBUG").ok().as_deref() == Some("1");
+    if !enabled {
+        return;
+    }
+
+    let out_dir = Path::new("target").join("egglog");
+    INIT.call_once(|| {
+        let _ = fs::create_dir_all(&out_dir);
+    });
+
+    NOTICE.call_once(|| {
+        println!("egglog debug dumps: {}", out_dir.display());
+    });
+
+    let file_stem = path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("llhd");
+    let file_stem_label = sanitize_label(file_stem);
+    let unit_label = sanitize_label(&unit.name().to_string());
+    let file_name = format!(
+        "{}__{}__{}.egglog.txt",
+        if file_stem_label.is_empty() {
+            "llhd"
+        } else {
+            file_stem_label.as_str()
+        },
+        if unit_label.is_empty() {
+            "unit"
+        } else {
+            unit_label.as_str()
+        },
+        unit_index
+    );
+    let file_path = out_dir.join(file_name);
+    let contents = dump_egglog_debug(&unit, program);
+    let _ = fs::write(file_path, contents);
+}
+
+#[cfg(feature = "egglog-debug")]
+fn sanitize_label(input: &str) -> String {
+    let mut out = String::new();
+    for ch in input.chars() {
+        if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') {
+            out.push(ch);
+        } else {
+            out.push('_');
+        }
+    }
+    out.trim_matches('_').to_string()
+}
+
 #[test]
 fn roundtrip_unit_egglog() {
     let mut files = Vec::new();
@@ -325,10 +386,15 @@ fn roundtrip_unit_egglog() {
         let module = parse_module_unchecked(&contents)
             .unwrap_or_else(|err| panic!("parse failed for {}: {}", path.display(), err));
 
-        let programs: Vec<_> = module
-            .units()
-            .map(|unit| unit_to_egglog_program(&unit).expect("egglog program"))
-            .collect();
+        let mut programs = Vec::new();
+        for (index, unit) in module.units().enumerate() {
+            let program = unit_to_egglog_program(&unit).expect("egglog program");
+            #[cfg(feature = "egglog-debug")]
+            {
+                maybe_dump_egglog_program(path, index, unit, &program);
+            }
+            programs.push(program);
+        }
 
         let mut rebuilt = Module::new();
         for decl in module.decls() {
