@@ -23,7 +23,7 @@ struct Builder<'ll> {
 
 impl<'ll> Builder<'ll> {
     /// Create a new builder for the given module.
-    fn new(module: &llhd::ir::Module) -> Builder {
+    fn new(module: &llhd::ir::Module) -> Builder<'_> {
         Builder {
             module: module,
             signals: Vec::new(),
@@ -264,7 +264,7 @@ impl<'ll> Builder<'ll> {
 }
 
 /// Build the simulation for a module.
-pub fn build(module: &llhd::ir::Module) -> Result<State> {
+pub fn build(module: &llhd::ir::Module) -> Result<State<'_>> {
     let mut builder = Builder::new(module);
 
     // Find the last process or entity in the module, which we will use as the
