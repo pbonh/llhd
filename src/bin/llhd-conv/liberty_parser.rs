@@ -1024,210 +1024,153 @@ mod __intern_token {
 pub use self::__intern_token::Token;
 
 #[allow(unused_variables)]
-fn __action0<
-    'input,
->(
+fn __action0<'input>(
     input: &'input str,
     (_, __0, _): (usize, FunctionTerm, usize),
-) -> FunctionTerm
-{
+) -> FunctionTerm {
     (__0)
 }
 
 #[allow(unused_variables)]
-fn __action1<
-    'input,
->(
+fn __action1<'input>(
     input: &'input str,
     (_, __0, _): (usize, FunctionTerm, usize),
-) -> FunctionTerm
-{
+) -> FunctionTerm {
     (__0)
 }
 
 #[allow(unused_variables)]
-fn __action2<
-    'input,
->(
+fn __action2<'input>(
     input: &'input str,
     (_, __0, _): (usize, FunctionTerm, usize),
-) -> FunctionTerm
-{
+) -> FunctionTerm {
     (__0)
 }
 
 #[allow(unused_variables)]
-fn __action3<
-    'input,
->(
+fn __action3<'input>(
     input: &'input str,
     (_, a, _): (usize, FunctionTerm, usize),
     (_, _, _): (usize, &'input str, usize),
     (_, b, _): (usize, FunctionTerm, usize),
-) -> FunctionTerm
-{
+) -> FunctionTerm {
     FunctionTerm::Or(Box::new(a), Box::new(b))
 }
 
 #[allow(unused_variables)]
-fn __action4<
-    'input,
->(
+fn __action4<'input>(
     input: &'input str,
     (_, __0, _): (usize, FunctionTerm, usize),
-) -> FunctionTerm
-{
+) -> FunctionTerm {
     (__0)
 }
 
 #[allow(unused_variables)]
-fn __action5<
-    'input,
->(
+fn __action5<'input>(
     input: &'input str,
     (_, a, _): (usize, FunctionTerm, usize),
     (_, _, _): (usize, &'input str, usize),
     (_, b, _): (usize, FunctionTerm, usize),
-) -> FunctionTerm
-{
+) -> FunctionTerm {
     FunctionTerm::And(Box::new(a), Box::new(b))
 }
 
 #[allow(unused_variables)]
-fn __action6<
-    'input,
->(
+fn __action6<'input>(
     input: &'input str,
     (_, __0, _): (usize, FunctionTerm, usize),
-) -> FunctionTerm
-{
+) -> FunctionTerm {
     (__0)
 }
 
 #[allow(unused_variables)]
-fn __action7<
-    'input,
->(
+fn __action7<'input>(
     input: &'input str,
     (_, _, _): (usize, &'input str, usize),
     (_, __0, _): (usize, FunctionTerm, usize),
-) -> FunctionTerm
-{
+) -> FunctionTerm {
     FunctionTerm::Not(Box::new(__0))
 }
 
 #[allow(unused_variables)]
-fn __action8<
-    'input,
->(
+fn __action8<'input>(
     input: &'input str,
     (_, __0, _): (usize, FunctionTerm, usize),
-) -> FunctionTerm
-{
+) -> FunctionTerm {
     (__0)
 }
 
 #[allow(unused_variables)]
-fn __action9<
-    'input,
->(
+fn __action9<'input>(
     input: &'input str,
     (_, _, _): (usize, &'input str, usize),
     (_, __0, _): (usize, FunctionTerm, usize),
     (_, _, _): (usize, &'input str, usize),
-) -> FunctionTerm
-{
+) -> FunctionTerm {
     (__0)
 }
 
 #[allow(unused_variables)]
-fn __action10<
-    'input,
->(
-    input: &'input str,
-    (_, a, _): (usize, &'input str, usize),
-) -> FunctionTerm
-{
+fn __action10<'input>(input: &'input str, (_, a, _): (usize, &'input str, usize)) -> FunctionTerm {
     FunctionTerm::Atom(a.to_string())
 }
 
 #[allow(unused_variables)]
-fn __action11<
-    'input,
->(
-    input: &'input str,
-    (_, __0, _): (usize, &'input str, usize),
-) -> &'input str
-{
+fn __action11<'input>(input: &'input str, (_, __0, _): (usize, &'input str, usize)) -> &'input str {
     (__0)
 }
 
 #[allow(unused_variables)]
-fn __action12<
-    'input,
->(
-    input: &'input str,
-    (_, __0, _): (usize, &'input str, usize),
-) -> &'input str
-{
+fn __action12<'input>(input: &'input str, (_, __0, _): (usize, &'input str, usize)) -> &'input str {
     (__0)
 }
 
 #[allow(unused_variables)]
-fn __action13<
-    'input,
->(
-    input: &'input str,
-    (_, __0, _): (usize, &'input str, usize),
-) -> &'input str
-{
+fn __action13<'input>(input: &'input str, (_, __0, _): (usize, &'input str, usize)) -> &'input str {
     (__0)
 }
 
 #[allow(unused_variables)]
-fn __action14<
-    'input,
->(
-    input: &'input str,
-    (_, __0, _): (usize, &'input str, usize),
-) -> &'input str
-{
+fn __action14<'input>(input: &'input str, (_, __0, _): (usize, &'input str, usize)) -> &'input str {
     (__0)
 }
 
 #[allow(unused_variables)]
-fn __action15<
-    'input,
->(
-    input: &'input str,
-    (_, __0, _): (usize, &'input str, usize),
-) -> &'input str
-{
+fn __action15<'input>(input: &'input str, (_, __0, _): (usize, &'input str, usize)) -> &'input str {
     (__0)
 }
 
 #[allow(unused_variables)]
-fn __action16<
-    'input,
->(
-    input: &'input str,
-    (_, __0, _): (usize, &'input str, usize),
-) -> &'input str
-{
+fn __action16<'input>(input: &'input str, (_, __0, _): (usize, &'input str, usize)) -> &'input str {
     (__0)
 }
 
-pub trait __ToTriple<'input, > {
-    fn to_triple(value: Self) -> Result<(usize,Token<'input>,usize), __lalrpop_util::ParseError<usize, Token<'input>, &'static str>>;
+pub trait __ToTriple<'input> {
+    fn to_triple(
+        value: Self,
+    ) -> Result<
+        (usize, Token<'input>, usize),
+        __lalrpop_util::ParseError<usize, Token<'input>, &'static str>,
+    >;
 }
 
-impl<'input, > __ToTriple<'input, > for (usize, Token<'input>, usize) {
-    fn to_triple(value: Self) -> Result<(usize,Token<'input>,usize), __lalrpop_util::ParseError<usize, Token<'input>, &'static str>> {
+impl<'input> __ToTriple<'input> for (usize, Token<'input>, usize) {
+    fn to_triple(
+        value: Self,
+    ) -> Result<
+        (usize, Token<'input>, usize),
+        __lalrpop_util::ParseError<usize, Token<'input>, &'static str>,
+    > {
         Ok(value)
     }
 }
-impl<'input, > __ToTriple<'input, > for Result<(usize, Token<'input>, usize), &'static str> {
-    fn to_triple(value: Self) -> Result<(usize,Token<'input>,usize), __lalrpop_util::ParseError<usize, Token<'input>, &'static str>> {
+impl<'input> __ToTriple<'input> for Result<(usize, Token<'input>, usize), &'static str> {
+    fn to_triple(
+        value: Self,
+    ) -> Result<
+        (usize, Token<'input>, usize),
+        __lalrpop_util::ParseError<usize, Token<'input>, &'static str>,
+    > {
         match value {
             Ok(v) => Ok(v),
             Err(error) => Err(__lalrpop_util::ParseError::User { error }),

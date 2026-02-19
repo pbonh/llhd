@@ -46,10 +46,7 @@ impl UnitName {
     ///
     /// Local names can only be linked within the same module.
     pub fn is_local(&self) -> bool {
-        match self {
-            UnitName::Anonymous(..) | UnitName::Local(..) => true,
-            _ => false,
-        }
+        matches!(self, UnitName::Anonymous(..) | UnitName::Local(..))
     }
 
     /// Check whether this is a global name.
@@ -57,10 +54,7 @@ impl UnitName {
     /// Global names may be referenced by other modules and are considered by
     /// the global linker.
     pub fn is_global(&self) -> bool {
-        match self {
-            UnitName::Global(..) => true,
-            _ => false,
-        }
+        matches!(self, UnitName::Global(..))
     }
 
     /// Get the underlying name.
@@ -205,10 +199,10 @@ impl<'a> Unit<'a> {
         match verifier.finish() {
             Ok(()) => (),
             Err(errs) => {
-                eprintln!("");
+                eprintln!();
                 eprintln!("Verified {}:", self.data.kind);
                 eprintln!("{}", self);
-                eprintln!("");
+                eprintln!();
                 eprintln!("Verification errors:");
                 eprintln!("{}", errs);
                 panic!("verification failed");
@@ -640,20 +634,20 @@ impl<'a> Unit<'a> {
 
 impl std::fmt::Display for Unit<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
+        writeln!(
             f,
-            "{} {} {} {{\n",
+            "{} {} {} {{",
             self.data.kind,
             self.data.name,
             self.data.sig.dump(self)
         )?;
         for bb in self.blocks() {
-            write!(f, "{}:\n", bb.dump(self))?;
+            writeln!(f, "{}:", bb.dump(self))?;
             for inst in self.insts(bb) {
                 if self[inst].opcode().is_terminator() && self.is_entity() {
                     continue;
                 }
-                write!(f, "    {}\n", inst.dump(self))?;
+                writeln!(f, "    {}", inst.dump(self))?;
             }
         }
         write!(f, "}}")?;
@@ -697,7 +691,7 @@ impl<'a> UnitBuilder<'a> {
             // Safety of the above is enforced by UnitBuilder by requiring all
             // mutation of the unit to go through a mutable borrow of the
             // builder itself.
-            data: data,
+            data,
             pos,
         }
     }
@@ -876,7 +870,7 @@ impl<'a> UnitBuilder<'a> {
 
     /// Clear the name of a BB.
     pub fn clear_block_name(&mut self, bb: Block) -> Option<String> {
-        std::mem::replace(&mut self.data.cfg[bb].name, None)
+        self.data.cfg[bb].name.take()
     }
 
     /// Set the anonymous name hint of a BB.
@@ -989,7 +983,7 @@ impl<'a> UnitBuilder<'a> {
         for arg in sig.args() {
             let value = self.add_value(ValueData::Arg {
                 ty: sig.arg_type(arg),
-                arg: arg,
+                arg,
             });
             self.data.dfg.args.add(arg, value);
         }

@@ -43,7 +43,7 @@ impl DominatorTree {
         let length = post_order.len();
         // trace!("[DomTree] post-order {:?}", post_order);
 
-        let undef = std::u32::MAX;
+        let undef = u32::MAX;
         let mut doms = vec![undef; length];
         let mut inv_post_order = vec![undef; unit.block_id_bound()];
         for (i, &bb) in post_order.iter().enumerate() {

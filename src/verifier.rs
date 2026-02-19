@@ -61,7 +61,7 @@ impl Verifier {
             self.errors.push(VerifierError {
                 unit: self.unit_name.clone(),
                 object: None,
-                message: format!("layout has no entry block"),
+                message: "layout has no entry block".to_string(),
             });
         }
         for bb in unit.blocks() {
@@ -70,7 +70,7 @@ impl Verifier {
                 self.errors.push(VerifierError {
                     unit: self.unit_name.clone(),
                     object: Some(bb.to_string()),
-                    message: format!("block is empty"),
+                    message: "block is empty".to_string(),
                 })
             }
 
@@ -548,7 +548,7 @@ impl<'a> InstVerifier<'a> {
 
     /// Verify that the types of an instruction's arguments agree.
     fn verify_arg_tys_match(&mut self, inst: Inst) {
-        let ty = match self.unit()[inst].args().get(0) {
+        let ty = match self.unit()[inst].args().first() {
             Some(&arg) => self.unit.value_type(arg),
             None => return,
         };
@@ -562,7 +562,7 @@ impl<'a> InstVerifier<'a> {
         if mismatch {
             let tys: Vec<_> = self.unit()[inst]
                 .args()
-                .into_iter()
+                .iter()
                 .map(|&arg| self.unit.value_type(arg).to_string())
                 .collect();
             let tys: String = tys.join(", ");
@@ -671,7 +671,7 @@ impl<'a> InstVerifier<'a> {
         let amount = self.unit()[inst].args()[2];
         self.verify_arg_matches_ty(inst, base, &ty);
         let amount_ty = self.unit.value_type(amount);
-        if !amount_ty.is_int() && !(amount_ty.is_signal() && amount_ty.unwrap_signal().is_int()) {
+        if !(amount_ty.is_int() || amount_ty.is_signal() && amount_ty.unwrap_signal().is_int()) {
             self.verifier.errors.push(VerifierError {
                 unit: self.verifier.unit_name.clone(),
                 object: Some(inst.dump(&self.unit).to_string()),
@@ -738,7 +738,7 @@ impl<'a> InstVerifier<'a> {
         }
         let sel = self.unit()[inst].args()[1];
         let sel_ty = self.unit.value_type(sel);
-        if !sel_ty.is_int() && !(sel_ty.is_signal() && sel_ty.unwrap_signal().is_int()) {
+        if !(sel_ty.is_int() || sel_ty.is_signal() && sel_ty.unwrap_signal().is_int()) {
             self.verifier.errors.push(VerifierError {
                 unit: self.verifier.unit_name.clone(),
                 object: Some(inst.dump(&self.unit).to_string()),
@@ -765,10 +765,8 @@ impl<'a> InstVerifier<'a> {
                 self.verify_arg_matches_ty(inst, arg, &int_ty(1));
             }
         }
-        for arg in self.unit()[inst].gating_args() {
-            if let Some(arg) = arg {
-                self.verify_arg_matches_ty(inst, arg, &int_ty(1));
-            }
+        for arg in self.unit()[inst].gating_args().flatten() {
+            self.verify_arg_matches_ty(inst, arg, &int_ty(1));
         }
     }
 

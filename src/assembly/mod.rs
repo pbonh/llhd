@@ -18,7 +18,7 @@ pub fn write_module(sink: impl std::io::Write, module: &Module) {
 /// Emit assembly for a module as string.
 pub fn write_module_string(module: &Module) -> String {
     let mut asm = vec![];
-    write_module(&mut asm, &module);
+    write_module(&mut asm, module);
     String::from_utf8(asm).expect("writer should emit proper utf8")
 }
 
@@ -55,9 +55,8 @@ pub fn parse_module(input: impl AsRef<str>) -> Result<Module, String> {
 pub fn parse_module_unchecked(input: impl AsRef<str>) -> Result<Module, String> {
     reader::ModuleParser::new()
         .parse(input.as_ref())
-        .map(|m| {
+        .inspect(|m| {
             debug!("Parsed module:\n{}", m.dump());
-            m
         })
         .map_err(|e| format!("{}", e))
 }

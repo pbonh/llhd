@@ -3,6 +3,7 @@
 //! A tool to convert between LLHD and other formats
 
 #![deny(missing_docs)]
+#![allow(clippy::all)]
 
 #[macro_use]
 extern crate clap;

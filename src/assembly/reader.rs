@@ -16,6 +16,7 @@ pub struct Context<'a> {
     pub block_names: HashMap<LocalName<'a>, ir::Block>,
 }
 
+#[allow(clippy::large_enum_variant)]
 pub enum Unit {
     Data(ir::UnitData, usize),
     Declare(ir::UnitName, ir::Signature, usize),
@@ -210,7 +211,7 @@ impl<'a> Inst<'a> {
                     .into_iter()
                     .map(|(data, mode, trigger, gate)| ir::RegTrigger {
                         data: data.build(builder, context),
-                        mode: mode,
+                        mode,
                         trigger: trigger.build(builder, context),
                         gate: gate.map(|g| g.build(builder, context)),
                     })
@@ -368,7 +369,7 @@ pub enum LocalName<'a> {
 
 impl<'a> From<&'a str> for LocalName<'a> {
     fn from(name: &'a str) -> Self {
-        if name.chars().all(|c| c.is_digit(10)) {
+        if name.chars().all(|c| c.is_ascii_digit()) {
             LocalName::Anonymous(name.parse().unwrap())
         } else {
             LocalName::Named(name)
@@ -501,7 +502,7 @@ pub fn parse_time_triple(
 
     // Concatenate the integer and fraction part into one number.
     let mut numer = int.to_owned();
-    if let Some(ref frac) = frac {
+    if let Some(frac) = frac {
         numer.push_str(frac);
     }
     let mut denom = String::from("1");
@@ -514,9 +515,9 @@ pub fn parse_time_triple(
     // numerator.
     let zeros = scale - frac.map(|s| s.len() as isize).unwrap_or(0);
     if zeros < 0 {
-        denom.extend(std::iter::repeat('0').take(-zeros as usize))
+        denom.extend(std::iter::repeat_n('0', -zeros as usize))
     } else if zeros > 0 {
-        numer.extend(std::iter::repeat('0').take(zeros as usize))
+        numer.extend(std::iter::repeat_n('0', zeros as usize))
     }
 
     // Convert the values to BigInt and combine them into a rational

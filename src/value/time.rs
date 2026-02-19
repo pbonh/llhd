@@ -101,7 +101,7 @@ fn write_ratio_as_si(ratio: &BigRational, f: &mut std::fmt::Formatter) -> std::f
         } else {
             prefix += 1;
         }
-        scaled = scaled * BigRational::from_integer(BigInt::from(1000));
+        scaled *= BigRational::from_integer(BigInt::from(1000));
     }
     let rounded = format!("{}", scaled.round());
     if shift > 0 {
@@ -127,11 +127,7 @@ mod tests {
         let make = |num: usize, denom: usize, delta: usize, epsilon: usize| {
             format!(
                 "{}",
-                TimeValue::new(
-                    BigRational::new(num.into(), denom.into()),
-                    delta.into(),
-                    epsilon.into()
-                )
+                TimeValue::new(BigRational::new(num.into(), denom.into()), delta, epsilon)
             )
         };
         assert_eq!(make(0, 1, 0, 0), "0s");

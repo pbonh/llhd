@@ -433,6 +433,7 @@ pub enum FunctionTerm {
 }
 
 #[allow(unused_parens)]
+#[allow(clippy::all)]
 mod grammar {
     include!("liberty_parser.rs");
 }

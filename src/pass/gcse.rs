@@ -149,10 +149,7 @@ impl Pass for GlobalCommonSubexprElim {
 
             // Insert the instruction into the table.
             // trace!("Recording {}", inst.dump(&unit));
-            values
-                .entry(unit[inst].clone())
-                .or_insert_with(Default::default)
-                .insert(value);
+            values.entry(unit[inst].clone()).or_default().insert(value);
         }
         modified
     }

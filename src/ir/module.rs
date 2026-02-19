@@ -152,7 +152,9 @@ impl Module {
     }
 
     /// Return an iterator over the symbols in the module.
-    pub fn symbols<'a>(&'a self) -> impl Iterator<Item = (&'a UnitName, LinkedUnit, &'a Signature)> + 'a {
+    pub fn symbols<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (&'a UnitName, LinkedUnit, &'a Signature)> + 'a {
         self.units()
             .map(|unit| (unit.name(), LinkedUnit::Def(unit.id()), unit.sig()))
             .chain(
@@ -243,10 +245,10 @@ impl Module {
         match verifier.finish() {
             Ok(()) => (),
             Err(errs) => {
-                eprintln!("");
+                eprintln!();
                 eprintln!("Verified module:");
                 eprintln!("{}", self.dump());
-                eprintln!("");
+                eprintln!();
                 eprintln!("Verification errors:");
                 eprintln!("{}", errs);
                 panic!("verification failed");
@@ -316,19 +318,19 @@ impl std::fmt::Display for ModuleDumper<'_> {
         let mut newline = false;
         for unit in self.0.units() {
             if newline {
-                writeln!(f, "")?;
-                writeln!(f, "")?;
+                writeln!(f)?;
+                writeln!(f)?;
             }
             newline = true;
             write!(f, "{}: ", unit.id())?;
             write!(f, "{}", unit)?;
         }
         if newline && !self.0.decls().count() > 0 {
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
         for decl in self.0.decls() {
             if newline {
-                writeln!(f, "")?;
+                writeln!(f)?;
             }
             newline = true;
             let data = &self.0[decl];
@@ -368,17 +370,11 @@ pub enum LinkedUnit {
 impl LinkedUnit {
     /// Check whether the linked unit is a definition.
     pub fn is_def(&self) -> bool {
-        match self {
-            LinkedUnit::Def(..) => true,
-            _ => false,
-        }
+        matches!(self, LinkedUnit::Def(..))
     }
 
     /// Check whether the linked unit is a declaration.
     pub fn is_decl(&self) -> bool {
-        match self {
-            LinkedUnit::Decl(..) => true,
-            _ => false,
-        }
+        matches!(self, LinkedUnit::Decl(..))
     }
 }

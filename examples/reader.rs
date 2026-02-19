@@ -38,7 +38,7 @@ fn main() {
     println!("Dump:");
     let module = llhd::assembly::parse_module(input).unwrap();
     println!("{}", module.dump());
-    println!("");
+    println!();
     println!("Written:");
     llhd::assembly::write_module(std::io::stdout(), &module);
 }

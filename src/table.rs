@@ -305,7 +305,7 @@ impl<I: TableKey, V: Default> PrimaryTable2<I, V> {
         self.count -= 1;
         self.used.remove(id);
         self.free.add(id);
-        std::mem::replace(&mut self.storage[id as usize], Default::default())
+        std::mem::take(&mut self.storage[id as usize])
     }
 
     /// Get the number of entries for which storage is allocated.

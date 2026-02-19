@@ -243,6 +243,7 @@ impl IntValue {
 /// Comparisons.
 impl IntValue {
     /// Compute `==`.
+    #[allow(clippy::should_implement_trait)]
     pub fn eq(&self, other: &Self) -> bool {
         assert_eq!(self.width, other.width);
         self.value == other.value

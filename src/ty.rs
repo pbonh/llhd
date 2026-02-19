@@ -132,82 +132,52 @@ impl TypeKind {
 
     /// Check if this is a void type.
     pub fn is_void(&self) -> bool {
-        match *self {
-            VoidType => true,
-            _ => false,
-        }
+        matches!(*self, VoidType)
     }
 
     /// Check if this is a time type.
     pub fn is_time(&self) -> bool {
-        match *self {
-            TimeType => true,
-            _ => false,
-        }
+        matches!(*self, TimeType)
     }
 
     /// Check if this is an integer type.
     pub fn is_int(&self) -> bool {
-        match *self {
-            IntType(..) => true,
-            _ => false,
-        }
+        matches!(*self, IntType(..))
     }
 
     /// Check if this is an enum type.
     pub fn is_enum(&self) -> bool {
-        match *self {
-            EnumType(..) => true,
-            _ => false,
-        }
+        matches!(*self, EnumType(..))
     }
 
     /// Check if this is a pointer type.
     pub fn is_pointer(&self) -> bool {
-        match *self {
-            PointerType(..) => true,
-            _ => false,
-        }
+        matches!(*self, PointerType(..))
     }
 
     /// Check if this is a signal type.
     pub fn is_signal(&self) -> bool {
-        match *self {
-            SignalType(..) => true,
-            _ => false,
-        }
+        matches!(*self, SignalType(..))
     }
 
     /// Check if this is an array type.
     pub fn is_array(&self) -> bool {
-        match *self {
-            ArrayType(..) => true,
-            _ => false,
-        }
+        matches!(*self, ArrayType(..))
     }
 
     /// Check if this is a struct type.
     pub fn is_struct(&self) -> bool {
-        match *self {
-            StructType(..) => true,
-            _ => false,
-        }
+        matches!(*self, StructType(..))
     }
 
     /// Check if this is a func type.
     pub fn is_func(&self) -> bool {
-        match *self {
-            FuncType(..) => true,
-            _ => false,
-        }
+        matches!(*self, FuncType(..))
     }
 
     /// Check if this is an entity type.
     pub fn is_entity(&self) -> bool {
-        match *self {
-            EntityType(..) => true,
-            _ => false,
-        }
+        matches!(*self, EntityType(..))
     }
 
     /// Extract the length of the type.
@@ -225,6 +195,11 @@ impl TypeKind {
             StructType(ref f) => f.len(),
             _ => 0,
         }
+    }
+
+    /// Check if the type has zero length.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 

@@ -1,5 +1,11 @@
 // auto-generated: "lalrpop 0.17.2"
 // sha256: 8e97eedd8aa97cb6c8b0c2964e1e39f7b046e6c6e8f68aa5dd444c1a986f0b2
+#![allow(
+    clippy::all,
+    clippy::deprecated_cfg_attr,
+    clippy::double_parens,
+    clippy::redundant_static_lifetimes
+)]
 use crate::assembly::reader as ast;
 use crate::{
     ir::prelude::*,

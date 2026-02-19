@@ -22,7 +22,7 @@ impl PredecessorTable {
         for bb in unit.blocks() {
             if let Some(term) = unit.last_inst(bb) {
                 for to_bb in unit[term].blocks() {
-                    pred.get_mut(&to_bb).unwrap().insert(bb);
+                    pred.get_mut(to_bb).unwrap().insert(bb);
                 }
                 succ.insert(bb, unit[term].blocks().iter().cloned().collect());
             } else {
@@ -48,7 +48,7 @@ impl PredecessorTable {
             if let Some(term) = unit.last_inst(bb) {
                 if !unit[term].opcode().is_temporal() {
                     for to_bb in unit[term].blocks() {
-                        pred.get_mut(&to_bb).unwrap().insert(bb);
+                        pred.get_mut(to_bb).unwrap().insert(bb);
                     }
                     succ.insert(bb, unit[term].blocks().iter().cloned().collect());
                 } else {

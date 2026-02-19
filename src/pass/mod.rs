@@ -4,6 +4,15 @@
 //!
 //! This module implements various passes that analyze or mutate an LLHD
 //! intermediate representation.
+#![allow(
+    clippy::collapsible_if,
+    clippy::get_first,
+    clippy::iter_kv_map,
+    clippy::needless_borrow,
+    clippy::only_used_in_recursion,
+    clippy::question_mark,
+    clippy::single_match
+)]
 
 pub mod cf;
 pub mod cfs;

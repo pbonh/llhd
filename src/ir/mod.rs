@@ -47,12 +47,12 @@ impl Value {
     ///
     /// This is used for unused instruction arguments.
     pub(crate) fn invalid() -> Self {
-        Value(std::u32::MAX)
+        Value(u32::MAX)
     }
 
     /// Check if this is a placeholder for invalid values.
     pub fn is_invalid(&self) -> bool {
-        self.0 == std::u32::MAX
+        self.0 == u32::MAX
     }
 }
 
@@ -61,20 +61,21 @@ impl Block {
     ///
     /// This is used for unused instruction arguments.
     pub(crate) fn invalid() -> Self {
-        Block(std::u32::MAX)
+        Block(u32::MAX)
     }
 
     /// Check if this is a placeholder for invalid blocks.
     pub fn is_invalid(&self) -> bool {
-        self.0 == std::u32::MAX
+        self.0 == u32::MAX
     }
 }
 
 /// Internal table storage for values.
 #[allow(missing_docs)]
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub enum ValueData {
     /// The invalid value placeholder.
+    #[default]
     Invalid,
     /// The value is the result of an instruction.
     Inst { ty: Type, inst: Inst },
@@ -87,16 +88,7 @@ pub enum ValueData {
 impl ValueData {
     /// Check if the value is a placeholder.
     pub fn is_placeholder(&self) -> bool {
-        match self {
-            ValueData::Placeholder { .. } => true,
-            _ => false,
-        }
-    }
-}
-
-impl Default for ValueData {
-    fn default() -> ValueData {
-        ValueData::Invalid
+        matches!(self, ValueData::Placeholder { .. })
     }
 }
 

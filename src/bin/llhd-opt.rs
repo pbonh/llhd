@@ -92,15 +92,15 @@ fn main_inner() -> Result<(), String> {
     let t0 = Instant::now();
     let mut module = {
         let path = matches.value_of("input").unwrap();
-        let mut input = File::open(path).map_err(|e| format!("{}", e))?;
+        let mut input = File::open(path).map_err(|e| e.to_string())?;
         let mut contents = String::new();
         input
             .read_to_string(&mut contents)
-            .map_err(|e| format!("{}", e))?;
-        let module = parse_module(&contents).map_err(|e| format!("{}", e))?;
+            .map_err(|e| e.to_string())?;
+        let module = parse_module(&contents).map_err(|e| e.to_string())?;
         let mut verifier = Verifier::new();
         verifier.verify_module(&module);
-        verifier.finish().map_err(|errs| format!("{}", errs))?;
+        verifier.finish().map_err(|errs| errs.to_string())?;
         module
     };
     let t1 = Instant::now();
@@ -211,7 +211,7 @@ fn main_inner() -> Result<(), String> {
             name.push(':');
             eprintln!("  {:10}  {:8.3} ms", name, duration.as_secs_f64() / 1.0e-3);
         }
-        eprintln!("");
+        eprintln!();
         eprintln!("Structure Statistics:");
         eprintln!(
             "  Dominator Tree Construction: {:8.3} ms",

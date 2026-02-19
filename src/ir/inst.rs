@@ -121,7 +121,7 @@ impl<'a, 'b> InstBuilder<'a, 'b> {
         let inst = self.build(
             InstData::Aggregate {
                 opcode: Opcode::Array,
-                args: args,
+                args,
             },
             ty,
         );
@@ -139,7 +139,7 @@ impl<'a, 'b> InstBuilder<'a, 'b> {
         let inst = self.build(
             InstData::Aggregate {
                 opcode: Opcode::Struct,
-                args: args,
+                args,
             },
             ty,
         );
@@ -549,7 +549,7 @@ impl<'a, 'b> InstBuilder<'a, 'b> {
     /// Creates phi instruction to implement phi node in SSA graph representing the function
     /// or process
     pub fn phi(&mut self, args: Vec<Value>, bbs: Vec<Block>) -> Value {
-        assert!(args.len() > 0);
+        assert!(!args.is_empty());
         assert_eq!(args.len(), bbs.len());
         let ty = self.value_type(args[0]);
         let data = InstData::Phi {
@@ -587,7 +587,7 @@ impl<'a, 'b> InstBuilder<'a, 'b> {
         let data = InstData::Wait {
             opcode: Opcode::Wait,
             bbs: [bb],
-            args: args,
+            args,
         };
         self.build(data, void_ty())
     }
@@ -599,7 +599,7 @@ impl<'a, 'b> InstBuilder<'a, 'b> {
         let data = InstData::Wait {
             opcode: Opcode::WaitTime,
             bbs: [bb],
-            args: args,
+            args,
         };
         self.build(data, void_ty())
     }
@@ -1317,49 +1317,36 @@ impl Opcode {
 
     /// Check if this instruction is a constant.
     pub fn is_const(self) -> bool {
-        match self {
-            Opcode::ConstInt => true,
-            Opcode::ConstTime => true,
-            _ => false,
-        }
+        matches!(self, Opcode::ConstInt | Opcode::ConstTime)
     }
 
     /// Check if this instruction is a phi node.
     pub fn is_phi(self) -> bool {
-        match self {
-            Opcode::Phi => true,
-            _ => false,
-        }
+        matches!(self, Opcode::Phi)
     }
 
     /// Check if this instruction is a terminator.
     pub fn is_terminator(self) -> bool {
-        match self {
+        matches!(
+            self,
             Opcode::Halt
-            | Opcode::Ret
-            | Opcode::RetValue
-            | Opcode::Br
-            | Opcode::BrCond
-            | Opcode::Wait
-            | Opcode::WaitTime => true,
-            _ => false,
-        }
+                | Opcode::Ret
+                | Opcode::RetValue
+                | Opcode::Br
+                | Opcode::BrCond
+                | Opcode::Wait
+                | Opcode::WaitTime
+        )
     }
 
     /// Check if this is a return instruction.
     pub fn is_return(self) -> bool {
-        match self {
-            Opcode::Ret | Opcode::RetValue => true,
-            _ => false,
-        }
+        matches!(self, Opcode::Ret | Opcode::RetValue)
     }
 
     /// Check if this is a temporal instruction.
     pub fn is_temporal(self) -> bool {
-        match self {
-            Opcode::Halt | Opcode::Wait | Opcode::WaitTime => true,
-            _ => false,
-        }
+        matches!(self, Opcode::Halt | Opcode::Wait | Opcode::WaitTime)
     }
 }
 

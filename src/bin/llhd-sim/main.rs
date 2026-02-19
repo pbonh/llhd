@@ -3,6 +3,7 @@
 //! The LLHD reference simulator
 
 #![deny(missing_docs)]
+#![allow(clippy::all)]
 
 #[macro_use]
 extern crate clap;

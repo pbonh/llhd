@@ -35,7 +35,7 @@ fn main() {
         .get_matches();
 
     let mut num_errors = 0;
-    for path in matches.values_of("inputs").into_iter().flat_map(|x| x) {
+    for path in matches.values_of("inputs").into_iter().flatten() {
         debug!("Parsing {}", path);
         match process_input(path, &matches) {
             Ok(()) => (),

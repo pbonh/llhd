@@ -25,14 +25,14 @@ impl<T: Write> Writer<T> {
         let mut separate = false;
         for unit in module.units() {
             if separate {
-                write!(self.sink, "\n")?;
+                writeln!(self.sink)?;
             }
             separate = true;
             self.write_unit(unit)?;
         }
         for decl in module.decls() {
             if separate {
-                write!(self.sink, "\n")?;
+                writeln!(self.sink)?;
             }
             separate = false;
             let data = &module[decl];
@@ -55,7 +55,7 @@ impl<T: Write> Writer<T> {
             uw.write_value_name(data.arg_value(arg))?;
         }
         if data.kind() == UnitKind::Function {
-            write!(uw.writer.sink, ") {} {{\n", data.sig().return_type())?;
+            writeln!(uw.writer.sink, ") {} {{", data.sig().return_type())?;
         } else {
             write!(uw.writer.sink, ") -> (")?;
             let mut comma = false;
@@ -67,12 +67,12 @@ impl<T: Write> Writer<T> {
                 write!(uw.writer.sink, "{} ", data.sig().arg_type(arg))?;
                 uw.write_value_name(data.arg_value(arg))?;
             }
-            write!(uw.writer.sink, ") {{\n")?;
+            writeln!(uw.writer.sink, ") {{")?;
         }
         for block in data.blocks() {
             if data.kind() != UnitKind::Entity {
                 uw.write_block_name(block)?;
-                write!(uw.writer.sink, ":\n")?;
+                writeln!(uw.writer.sink, ":")?;
             }
             for inst in data.insts(block) {
                 if data[inst].opcode().is_terminator() && data.is_entity() {
@@ -80,16 +80,16 @@ impl<T: Write> Writer<T> {
                 }
                 write!(uw.writer.sink, "    ")?;
                 uw.write_inst(inst)?;
-                write!(uw.writer.sink, "\n")?;
+                writeln!(uw.writer.sink)?;
             }
         }
-        write!(uw.writer.sink, "}}\n")?;
+        writeln!(uw.writer.sink, "}}")?;
         Ok(())
     }
 
     /// Emit assembly for a declaration.
     pub fn write_declaration(&mut self, sig: &Signature, name: &UnitName) -> Result<()> {
-        write!(self.sink, "declare {} {}\n", name, sig)?;
+        writeln!(self.sink, "declare {} {}", name, sig)?;
         Ok(())
     }
 }
@@ -461,7 +461,7 @@ impl<'a, T: Write> UnitWriter<'a, T> {
 
 /// Check if a character can be emitted in a name without escaping.
 fn is_acceptable_name_char(c: char) -> bool {
-    c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '.'
+    c.is_ascii_alphanumeric() || c == '_' || c == '.'
 }
 
 /// Escape the special characters in a name.
